@@ -1,5 +1,6 @@
 import { FedericoProvider, MarinoBusProvider, SalemiProvider } from "./albatross.ts";
 import { ItabusProvider } from "./itabus.ts";
+import { FlixBusProvider } from "./flixbus.ts";
 import type { Provider } from "./provider.ts";
 
 export function createDefaultProviders(): readonly Provider[] {
@@ -8,5 +9,6 @@ export function createDefaultProviders(): readonly Provider[] {
     new SalemiProvider(),
     new FedericoProvider(),
     new MarinoBusProvider(),
+    new FlixBusProvider(),
   ];
 }

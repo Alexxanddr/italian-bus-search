@@ -53,6 +53,7 @@ test("enables every live provider by default", async () => {
       { id: "salemi", status: "available" },
       { id: "federico", status: "available" },
       { id: "marinobus", status: "available" },
+    { id: "flixbus", status: "available" },
     ],
   );
 });

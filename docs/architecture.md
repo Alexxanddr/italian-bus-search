@@ -18,6 +18,7 @@ The application provides small read-only HTTP and MCP interfaces over incompatib
 | `src/providers/default.ts` | Default provider composition |
 | `src/providers/itabus.ts` | Itabus protocol and normalization |
 | `src/providers/albatross.ts` | Shared Salemi, Federico, and MarinoBus protocol |
+| `src/providers/flixbus.ts` | FlixBus autocomplete, journey search, and normalization |
 | `src/index.ts` | Process configuration and server startup |
 | `test/` | Offline behavior tests and synthetic fixtures |
 | `docs/` | API, architecture, provider, and operations documentation |

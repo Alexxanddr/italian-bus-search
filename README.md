@@ -9,12 +9,12 @@ An unofficial, read-only TypeScript service that searches multiple Italian coach
 The project hides provider-specific station catalogs, request formats, fare structures, and multi-leg responses behind one shared application core. It never performs login, booking, seat selection, or payment operations.
 
 > [!IMPORTANT]
-> This project is not affiliated with or endorsed by Itabus, Autoservizi Salemi, Autolinee Federico, or MarinoBus. Provider names and trademarks belong to their owners. Before enabling a live adapter, confirm that your use complies with the provider's terms, applicable law, and any required authorization. This repository does not grant data-extraction or redistribution rights.
+> This project is not affiliated with or endorsed by Itabus, Autoservizi Salemi, Autolinee Federico, MarinoBus, or FlixBus. Provider names and trademarks belong to their owners. Before enabling a live adapter, confirm that your use complies with the provider's terms, applicable law, and any required authorization. This repository does not grant data-extraction or redistribution rights.
 
 ## Features
 
 - One response model for locations and journeys across different booking platforms.
-- Live adapters for four operators.
+- Live adapters for five operators.
 - Partial results when one provider fails and another succeeds.
 - A local stdio MCP server with structured, read-only tools.
 - Official links for continuing a search manually on provider sites.
@@ -33,6 +33,8 @@ The project hides provider-specific station catalogs, request formats, fare stru
 | `salemi` | Autoservizi Salemi | Albatross tenant | Live | Live |
 | `federico` | Autolinee Federico | Albatross tenant | Live | Live |
 | `marinobus` | MarinoBus | Albatross tenant | Live | Live |
+| `flixbus` | FlixBus | Global FlixBus search API | Live | Live |
+| `flixbus` | FlixBus | Global FlixBus search API | Live | Live |
 
 Provider behavior and the evidence behind each integration are recorded in [Provider research](docs/research.md).
 

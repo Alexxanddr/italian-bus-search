@@ -4,6 +4,10 @@ All notable changes will be documented here. Releases follow Semantic Versioning
 
 ## Unreleased
 
+## 0.1.8 - 2026-10-25
+
+- Added a native FlixBus provider with normalized locations, journeys, prices, and booking links.
+
 ## 0.1.7 - 2026-10-24
 
 - Clarified aggregate MCP searches must use shared location names because location IDs are provider-specific.
