@@ -1,6 +1,6 @@
 {
   "name": "italian-bus-search",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "mcpName": "io.github.Alexxanddr/italian-bus-search",
   "description": "Unofficial, read-only API and MCP server for normalized Italian bus journey searches",
   "keywords": [
