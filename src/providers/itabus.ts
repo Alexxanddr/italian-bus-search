@@ -229,7 +229,7 @@ export class ItabusProvider implements Provider {
   private async getJson(url: string): Promise<unknown> {
     try {
       const response = await this.fetcher(url, {
-        headers: { accept: "application/json", "user-agent": "italian-bus-search-api/0.1" },
+        headers: { accept: "application/json", "user-agent": "italian-bus-search/0.1" },
         signal: AbortSignal.timeout(timeoutMs),
       });
       if (response.status === 429) throw new AppError("RATE_LIMITED", "Itabus rate limit exceeded", 429);

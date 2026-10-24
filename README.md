@@ -1,8 +1,8 @@
-# Italian Bus Search API
+# Italian Bus Search
 
-[![CI](https://github.com/Alexxanddr/italian-bus-search-api/actions/workflows/ci.yml/badge.svg)](https://github.com/Alexxanddr/italian-bus-search-api/actions/workflows/ci.yml)
+[![CI](https://github.com/Alexxanddr/italian-bus-search/actions/workflows/ci.yml/badge.svg)](https://github.com/Alexxanddr/italian-bus-search/actions/workflows/ci.yml)
 
-An unofficial, read-only TypeScript HTTP API that searches multiple Italian coach operators and returns one normalized journey format.
+An unofficial, read-only TypeScript service that searches multiple Italian coach operators and returns one normalized journey format through an HTTP API.
 
 The project hides provider-specific station catalogs, request formats, fare structures, and multi-leg responses behind four small HTTP endpoints. It uses only Node.js at runtime and never performs login, booking, seat selection, or payment operations.
 
@@ -40,8 +40,8 @@ Provider behavior and the evidence behind each integration are recorded in [Prov
 ## Quick start
 
 ```sh
-git clone https://github.com/Alexxanddr/italian-bus-search-api.git
-cd italian-bus-search-api
+git clone https://github.com/Alexxanddr/italian-bus-search.git
+cd italian-bus-search
 npm install
 cp .env.example .env
 npm start

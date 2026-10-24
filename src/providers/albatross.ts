@@ -232,7 +232,7 @@ export class AlbatrossProvider implements Provider {
           accept: "application/json",
           "content-type": "application/json",
           "albatross-tenant": this.config.tenant,
-          "user-agent": "italian-bus-search-api/0.1",
+          "user-agent": "italian-bus-search/0.1",
         },
         signal: AbortSignal.timeout(timeoutMs),
       });
