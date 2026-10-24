@@ -4,6 +4,10 @@ All notable changes will be documented here. Releases follow Semantic Versioning
 
 ## Unreleased
 
+## 0.1.6 - 2026-10-24
+
+- Fixed MCPHub output validation by removing provider-internal location fields from structured MCP results.
+
 ## 0.1.5 - 2026-10-24
 
 - Fixed GitHub Actions trusted publishing by using npm 11.5.1 or newer.

@@ -31,7 +31,7 @@ function workingProvider(calls: { locations: number; journeys: number }): Provid
     searchLocations: async () => {
       calls.locations += 1;
       return [
-        { provider: "working", id: "ROM", name: "Roma", city: "Roma", source: "live" },
+        { provider: "working", id: "ROM", name: "Roma", city: "Roma", source: "live", synonyms: ["Rome"] },
         { provider: "working", id: "ROM2", name: "Roma East", city: "Roma", source: "live" },
         { provider: "working", id: "ROM3", name: "Roma West", city: "Roma", source: "live" },
       ];
@@ -92,6 +92,7 @@ test("keeps partial location results and reports truncation", async (context) =>
   assert.equal(result.isError, undefined);
   const output = result.structuredContent as { locations: unknown[]; errors: unknown[]; total: number; truncated: boolean };
   assert.equal(output.locations.length, 2);
+  assert.equal("synonyms" in (output.locations[0] as object), false);
   assert.equal(output.errors.length, 1);
   assert.equal(output.total, 3);
   assert.equal(output.truncated, true);

@@ -98,7 +98,7 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
       const result = await service.searchLocations(validateLocationQuery(query), provider);
       const total = result.locations.length;
       const output = {
-        locations: result.locations.slice(0, validateResultLimit(limit)),
+        locations: result.locations.slice(0, validateResultLimit(limit)).map((location) => locationSchema.parse(location)),
         errors: result.errors,
         total,
         truncated: total > limit,
