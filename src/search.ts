@@ -40,7 +40,8 @@ export class SearchService {
       }
     }));
     return {
-      journeys: settled.flatMap((result) => result.journeys),
+      // Sort before MCP applies its limit so one provider cannot hide others.
+      journeys: settled.flatMap((result) => result.journeys).sort((left, right) => Date.parse(left.departure) - Date.parse(right.departure)),
       errors: settled.flatMap((result) => result.errors),
     };
   }

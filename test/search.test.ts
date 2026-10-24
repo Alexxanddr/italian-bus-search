@@ -72,3 +72,10 @@ test("distinguishes no journeys from provider failure", async () => {
     ],
   });
 });
+
+test("sorts aggregate journeys across providers before the MCP limit", async () => {
+  const later = { ...journey, provider: "later", tripId: "later", departure: "2026-11-10T12:00:00+01:00" };
+  const earlier = { ...journey, provider: "earlier", tripId: "earlier", departure: "2026-11-10T07:00:00+01:00" };
+  const provider = (id: string, value: Journey): Provider => ({ id, status: "available", searchLocations: async () => [], searchJourneys: async () => [value] });
+  assert.deepEqual((await new SearchService([provider("later", later), provider("earlier", earlier)]).searchJourneys(input)).journeys.map(({ provider: id }) => id), ["earlier", "later"]);
+});
