@@ -40,6 +40,19 @@ test("uses autocomplete and search endpoints with cache", async () => {
   assert.equal(calls.filter((url) => url.includes("service/v4/search")).length, 1);
 });
 
+test("does not reuse one city's autocomplete results for another query", async () => {
+  const calls: string[] = [];
+  const provider = new FlixBusProvider(async (request) => {
+    const url = request.toString(); calls.push(url);
+    if (url.includes("q=Roma")) return Response.json([{ id: "rome-id", name: "Roma", country: "IT", is_flixbus_city: true }]);
+    if (url.includes("q=Cosenza")) return Response.json([{ id: "cosenza-id", name: "Cosenza", country: "IT", is_flixbus_city: true }]);
+    return Response.json(payload());
+  });
+  await provider.searchLocations("Roma");
+  assert.equal((await provider.searchJourneys(input)).length, 2);
+  assert.equal(calls.filter((url) => url.includes("q=Cosenza")).length, 1);
+});
+
 test("rejects invalid timestamps", () => {
   const invalid = payload();
   invalid.trips[0].results.ok.departure.date = "not-a-date";

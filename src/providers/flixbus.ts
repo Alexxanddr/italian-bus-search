@@ -100,7 +100,7 @@ export class FlixBusProvider implements Provider {
   readonly status = "available";
   readonly statusReason = "Authorized anonymous live integration with timeout and in-memory cache";
   private readonly fetcher: Fetcher;
-  private citiesCache?: { expiresAt: number; value: City[] };
+  private readonly citiesCache = new Map<string, { expiresAt: number; value: City[] }>();
   private readonly journeysCache = new Map<string, { expiresAt: number; value: Journey[] }>();
 
   constructor(fetcher: Fetcher = fetch) { this.fetcher = fetcher; }
@@ -124,9 +124,11 @@ export class FlixBusProvider implements Provider {
   }
 
   private async cities(query: string): Promise<City[]> {
-    if (this.citiesCache !== undefined && this.citiesCache.expiresAt > Date.now()) return this.citiesCache.value;
+    const cacheKey = normalize(query);
+    const cached = this.citiesCache.get(cacheKey);
+    if (cached !== undefined && cached.expiresAt > Date.now()) return cached.value;
     const value = parseCities(await this.getJson(`${apiBaseUrl}/search/autocomplete/cities?q=${encodeURIComponent(query)}&lang=it`));
-    this.citiesCache = { expiresAt: Date.now() + locationCacheMs, value };
+    this.citiesCache.set(cacheKey, { expiresAt: Date.now() + locationCacheMs, value });
     return value;
   }
 
