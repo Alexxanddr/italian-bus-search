@@ -1,7 +1,7 @@
 import { AppError, type SearchInput } from "./domain.ts";
 
-export const defaultResultLimit = 10;
 export const maximumResultLimit = 50;
+export const defaultResultLimit = maximumResultLimit;
 
 export function validateLocationQuery(value: unknown): string {
   return requiredText(value, "query");

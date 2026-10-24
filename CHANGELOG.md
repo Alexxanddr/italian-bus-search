@@ -4,6 +4,11 @@ All notable changes will be documented here. Releases follow Semantic Versioning
 
 ## Unreleased
 
+## 0.1.9 - 2026-10-25
+
+- Sort aggregate journeys globally before applying the result limit.
+- Use the maximum result limit by default (`50`) for HTTP and MCP searches.
+
 ## 0.1.8 - 2026-10-25
 
 - Added a native FlixBus provider with normalized locations, journeys, prices, and booking links.
