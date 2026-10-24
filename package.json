@@ -4,6 +4,14 @@
   "private": true,
   "description": "Unofficial, read-only API for normalized Italian bus journey searches",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Alexxanddr/italian-bus-search-api.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Alexxanddr/italian-bus-search-api/issues"
+  },
+  "homepage": "https://github.com/Alexxanddr/italian-bus-search-api#readme",
   "type": "module",
   "engines": {
     "node": ">=22.18"

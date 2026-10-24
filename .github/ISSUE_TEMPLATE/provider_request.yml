@@ -1,0 +1,41 @@
+name: Provider request
+description: Propose a new coach operator or a provider protocol update.
+title: "[Provider]: "
+labels:
+  - provider
+body:
+  - type: input
+    id: operator
+    attributes:
+      label: Operator
+      description: Official operator name.
+    validations:
+      required: true
+  - type: input
+    id: website
+    attributes:
+      label: Official website
+      placeholder: https://example.com
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Technical and authorization evidence
+      description: Link official documentation, terms, or other public primary sources. Do not paste credentials or private captures.
+    validations:
+      required: true
+  - type: textarea
+    id: routes
+    attributes:
+      label: Example routes
+      description: List public origin and destination names that can be used for low-volume verification.
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope confirmation
+      options:
+        - label: The request concerns anonymous, read-only location and journey search.
+          required: true
+        - label: I have not included credentials, cookies, tokens, or personal data.
+          required: true
