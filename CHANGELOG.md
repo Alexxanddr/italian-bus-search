@@ -4,6 +4,10 @@ All notable changes will be documented here. Releases follow Semantic Versioning
 
 ## Unreleased
 
+## 0.1.7 - 2026-10-24
+
+- Clarified aggregate MCP searches must use shared location names because location IDs are provider-specific.
+
 ## 0.1.6 - 2026-10-24
 
 - Fixed MCPHub output validation by removing provider-internal location fields from structured MCP results.

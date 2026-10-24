@@ -79,7 +79,7 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
 
   server.registerTool("search_locations", {
     title: "Search Italian bus locations",
-    description: "Find provider location IDs and exact names. Call this before search_journeys, then reuse an ID or exact name from the result.",
+    description: "Find provider location IDs and exact names. For an aggregate search, reuse exact names shared across providers; IDs are provider-specific and should only be used with the provider field set.",
     inputSchema: z.object({
       query: z.string().describe("Partial city, stop, or location name"),
       provider: z.string().optional().describe("Provider ID; omit to search every provider"),
@@ -114,10 +114,10 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
 
   server.registerTool("search_journeys", {
     title: "Search Italian bus journeys",
-    description: "Search one-way journeys. Use origin and destination IDs or exact names returned by search_locations. Results include official links for continuing manually on provider sites.",
+    description: "Search one-way journeys. When provider is omitted, use exact location names shared across providers; use provider-specific IDs only together with provider. Results include official links for continuing manually on provider sites.",
     inputSchema: z.object({
-      origin: z.string().describe("Exact location name or ID returned by search_locations"),
-      destination: z.string().describe("Exact location name or ID returned by search_locations"),
+      origin: z.string().describe("Exact shared location name for aggregate searches, or a provider-specific ID when provider is set"),
+      destination: z.string().describe("Exact shared location name for aggregate searches, or a provider-specific ID when provider is set"),
       date: z.string().describe("Real future date in YYYY-MM-DD format"),
       adults: z.number().int().min(1).max(9).default(1),
       children: z.number().int().min(0).max(9).default(0),
