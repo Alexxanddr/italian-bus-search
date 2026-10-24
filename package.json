@@ -13,19 +13,39 @@
   },
   "homepage": "https://github.com/Alexxanddr/italian-bus-search#readme",
   "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "italian-bus-search-mcp": "dist/mcp/stdio.js"
+  },
+  "files": [
+    "dist",
+    "docs",
+    "README.md",
+    "SECURITY.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=22.18"
   },
   "scripts": {
     "dev": "node --watch --experimental-strip-types src/index.ts",
     "start": "node --experimental-strip-types src/index.ts",
+    "mcp": "node --experimental-strip-types src/mcp/stdio.ts",
+    "mcp:built": "node dist/mcp/stdio.js",
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
     "test": "node --experimental-strip-types --test test/*.test.ts",
     "type-check": "tsc --noEmit",
     "lint": "tsc --noEmit --pretty false",
-    "check": "npm run test && npm run type-check && npm run lint"
+    "check": "npm run test && npm run type-check && npm run lint && npm run build",
+    "prepack": "npm run check"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "^2.4.0",
     "@types/node": "^24.10.0",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.4.0",
+    "zod": "^4.6.7"
   }
 }

@@ -2,7 +2,7 @@
 
 ## Goals
 
-The application provides one small read-only interface over incompatible provider systems. Provider knowledge stays local to adapters, aggregate searches tolerate partial failure, and tests exercise the same seams used by production callers.
+The application provides small read-only HTTP and MCP interfaces over incompatible provider systems. Provider knowledge stays local to adapters, aggregate searches tolerate partial failure, and tests exercise the same seams used by production callers.
 
 ## Repository map
 
@@ -10,8 +10,12 @@ The application provides one small read-only interface over incompatible provide
 |---|---|
 | `src/domain.ts` | Normalized data types and application errors |
 | `src/app.ts` | HTTP validation, routing, status selection, and rate limiting |
+| `src/mcp/` | MCP tools and stdio process entrypoint |
+| `src/validation.ts` | Shared inbound search validation |
+| `src/rate-limit.ts` | Shared process-local limiter factory |
 | `src/search.ts` | Provider selection, concurrency, and partial-result aggregation |
 | `src/providers/provider.ts` | Provider contract |
+| `src/providers/default.ts` | Default provider composition |
 | `src/providers/itabus.ts` | Itabus protocol and normalization |
 | `src/providers/albatross.ts` | Shared Salemi, Federico, and MarinoBus protocol |
 | `src/index.ts` | Process configuration and server startup |
@@ -22,8 +26,11 @@ The application provides one small read-only interface over incompatible provide
 
 ```mermaid
 flowchart LR
-    Client[HTTP client] --> App[Node HTTP adapter]
-    App --> Search[SearchService]
+    HTTPClient[HTTP client] --> HTTP[Node HTTP adapter]
+    MCPHost[MCP host] --> MCP[stdio MCP adapter]
+    HTTP --> Validation[Shared validation]
+    MCP --> Validation
+    Validation --> Search[SearchService]
     Search --> Contract[Provider interface]
     Contract --> Itabus[Itabus adapter]
     Contract --> Albatross[Albatross adapter]
@@ -53,6 +60,16 @@ Changing a domain field affects the HTTP interface, every adapter, fixtures, and
 - serializes safe JSON errors.
 
 `createApp(providers)` is the primary test seam. Tests can replace all remote adapters without starting a socket. `createServer()` is a thin bridge to `node:http`.
+
+### MCP module
+
+`src/mcp/server.ts` registers three read-only tools over the same `SearchService`. It owns MCP schemas, bounded result presentation, structured content, and safe tool errors. `createBusMcpServer({ providers })` is its test seam.
+
+`src/mcp/stdio.ts` only owns process transport and shutdown. It writes protocol traffic to stdout through the SDK and diagnostics to stderr. The complete interface is in [mcp.md](mcp.md).
+
+### Shared inbound modules
+
+`src/validation.ts` owns the search invariants used by both inbound adapters. `src/rate-limit.ts` creates isolated process-local counters for HTTP clients and MCP search calls. This keeps transport code shallow without duplicating trust-boundary rules.
 
 ### Search module
 
@@ -103,17 +120,17 @@ Thin subclasses contain only stable tenant configuration. Shared behavior stays 
 
 ### Aggregate journey search
 
-1. `app.ts` validates the future date and passenger counts.
+1. The inbound adapter validates the future date and passenger counts through `validation.ts`.
 2. `SearchService` selects providers and invokes them concurrently.
 3. Each adapter resolves provider-specific origin and destination identifiers.
 4. Each adapter serves a fresh cached result or makes one timed upstream request.
 5. Each adapter validates and normalizes its response into `Journey[]`.
 6. `SearchService` combines journeys and provider errors.
-7. `app.ts` returns `200` when any journey exists, otherwise `503` when providers reported errors.
+7. The HTTP adapter selects a status code; the MCP adapter emits structured content and compact text.
 
 ### Trust boundaries
 
-Both inbound query parameters and upstream JSON are untrusted. Inbound values are validated in `app.ts`; required upstream fields are checked inside each adapter before domain objects are created. Unknown exceptions are reduced to `PROVIDER_UNAVAILABLE` without returning internal detail.
+Both inbound parameters and upstream JSON are untrusted. Shared search invariants are validated in `validation.ts`, while transport schemas reject incompatible MCP types. Required upstream fields are checked inside each provider adapter before domain objects are created. Unknown exceptions are reduced to safe errors without returning internal detail.
 
 ## State and performance
 
@@ -122,6 +139,7 @@ All state is process-local:
 | State | Lifetime |
 |---|---:|
 | Client request counter | 60 seconds |
+| MCP search counter | 60 seconds |
 | Successful journey result | 60 seconds |
 | Locations, destination catalogs, and fare categories | 1 hour |
 
@@ -132,6 +150,7 @@ Failed upstream requests are not cached. There is no persistent storage, shared 
 Tests cross public seams:
 
 - `test/api.test.ts` calls the `createApp` handler as an HTTP client would.
+- `test/mcp.test.ts` connects the official MCP client to the server, calls tools, and performs a stdio smoke test.
 - `test/search.test.ts` supplies complete `Provider` adapters and verifies aggregation.
 - provider tests inject a `Fetcher`, feed synthetic fixtures, and inspect normalized results and outbound requests.
 
@@ -144,5 +163,6 @@ The automated suite is deterministic and offline. Live checks are separate, low-
 - The service supports one-way searches only.
 - Liveness does not imply provider readiness.
 - Rate limiting is suitable for a single local process, not a distributed public edge.
+- MCP is local stdio only; no remote MCP transport or authentication is implemented.
 
 Production-hardening implications are documented in [operations.md](operations.md).

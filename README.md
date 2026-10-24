@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/Alexxanddr/italian-bus-search/actions/workflows/ci.yml/badge.svg)](https://github.com/Alexxanddr/italian-bus-search/actions/workflows/ci.yml)
 
-An unofficial, read-only TypeScript service that searches multiple Italian coach operators and returns one normalized journey format through an HTTP API.
+An unofficial, read-only TypeScript service that searches multiple Italian coach operators through HTTP and Model Context Protocol interfaces.
 
-The project hides provider-specific station catalogs, request formats, fare structures, and multi-leg responses behind four small HTTP endpoints. It uses only Node.js at runtime and never performs login, booking, seat selection, or payment operations.
+The project hides provider-specific station catalogs, request formats, fare structures, and multi-leg responses behind one shared application core. It never performs login, booking, seat selection, or payment operations.
 
 > [!IMPORTANT]
 > This project is not affiliated with or endorsed by Itabus, Autoservizi Salemi, Autolinee Federico, or MarinoBus. Provider names and trademarks belong to their owners. Before enabling a live adapter, confirm that your use complies with the provider's terms, applicable law, and any required authorization. This repository does not grant data-extraction or redistribution rights.
@@ -14,12 +14,14 @@ The project hides provider-specific station catalogs, request formats, fare stru
 - One response model for locations and journeys across different booking platforms.
 - Live adapters for four operators.
 - Partial results when one provider fails and another succeeds.
+- A local stdio MCP server with structured, read-only tools.
+- Official links for continuing a search manually on provider sites.
 - Structured, provider-scoped errors instead of leaked upstream responses.
 - Five-second upstream timeouts.
 - One-hour location caches and 60-second journey caches.
 - Per-client in-memory rate limiting at 60 requests per minute.
 - Offline tests with synthetic fixtures; the test suite never contacts provider sites.
-- No runtime dependencies.
+- A small runtime dependency surface: the official MCP SDK and Zod.
 
 ## Supported providers
 
@@ -76,12 +78,36 @@ curl 'http://127.0.0.1:3000/journeys?origin=Roma&destination=Milano&date=YYYY-MM
 
 The complete parameter, response, status, and error contract is in [HTTP interface](docs/api.md).
 
+## MCP server
+
+Build and start the local stdio server:
+
+```sh
+npm run build
+npm run mcp:built
+```
+
+It exposes `list_providers`, `search_locations`, and `search_journeys`. A host model can turn “find buses from Rome to Milan on 15 November” into the location and journey tool calls, then show normalized options with official links for manual purchase.
+
+```json
+{
+  "mcpServers": {
+    "italian-bus-search": {
+      "command": "node",
+      "args": ["/absolute/path/to/italian-bus-search/dist/mcp/stdio.js"]
+    }
+  }
+}
+```
+
+See [MCP interface](docs/mcp.md) for the authoritative tool contract, limits, errors, and development command.
+
 ## Architecture
 
 The application has four layers:
 
-1. the Node HTTP adapter validates requests and returns JSON;
-2. `SearchService` fans searches out across providers and combines partial results;
+1. HTTP and MCP adapters validate their transport-specific requests;
+2. shared validation and `SearchService` orchestrate searches and partial results;
 3. each provider adapter translates a remote protocol into domain types;
 4. the domain module owns normalized data and error contracts.
 
@@ -91,6 +117,7 @@ Provider adapters implement one shared interface, so callers do not know whether
 
 ```sh
 npm run dev
+npm run mcp
 npm run check
 ```
 
@@ -103,6 +130,7 @@ The default server deliberately binds to loopback and keeps rate-limit and cache
 ## Project documentation
 
 - [HTTP interface](docs/api.md) — authoritative endpoint and error contract.
+- [MCP interface](docs/mcp.md) — authoritative tools, results, limits, and stdio contract.
 - [Architecture](docs/architecture.md) — modules, seams, flows, and design decisions.
 - [Adding a provider](docs/adding-provider.md) — research, implementation, and verification checklist.
 - [Operations](docs/operations.md) — configuration, deployment constraints, and failure handling.
@@ -119,7 +147,7 @@ The default server deliberately binds to loopback and keeps rate-limit and cache
 - Prices and schedules can change between search and purchase.
 - Caches and rate limits reset when the process restarts and are not shared across replicas.
 - Upstream interfaces are unofficial and can change without notice.
-- The API intentionally excludes accounts, bookings, payments, and CAPTCHA handling.
+- Both interfaces intentionally exclude accounts, bookings, payments, and CAPTCHA handling.
 
 Always complete and confirm a purchase on the official provider site linked by `bookingUrl`.
 

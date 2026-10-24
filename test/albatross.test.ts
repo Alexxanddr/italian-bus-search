@@ -56,7 +56,9 @@ test("searches Albatross localities and journeys with the anonymous protocol", a
 
   assert.equal((await provider.searchLocations("rom"))[0]?.id, "ROM");
   const input = { origin: "Roma", destination: "Reggio Calabria", date: "2026-11-10", adults: 2, children: 1 };
-  assert.equal((await provider.searchJourneys(input))[0]?.price?.amount, 37.5);
+  const journey = (await provider.searchJourneys(input))[0];
+  assert.equal(journey?.price?.amount, 37.5);
+  assert.equal(journey?.bookingUrl, "https://booking.autolineefederico.it/it/from/Roma/261110/to/Reggio%20Calabria/?adulti=2");
   assert.equal((await provider.searchJourneys(input))[0]?.price?.amount, 37.5);
 
   const searchCalls = calls.filter(({ url }) => url.includes("/search/s/"));
@@ -76,4 +78,30 @@ test("configures every Albatross tenant adapter as available", () => {
     { id: "federico", status: "available" },
     { id: "marinobus", status: "available" },
   ]);
+});
+
+test("builds verified Albatross booking search links for every tenant", async () => {
+  const fixture = JSON.parse(await readFile(new URL("fixtures/albatross-search.json", import.meta.url), "utf8")) as unknown;
+  const fetcher = async (input: string | URL | Request): Promise<Response> => {
+    const url = input.toString();
+    if (url.includes("locations/from")) return Response.json([{ id: "ROM", description: "Roma" }]);
+    if (url.includes("locations/to")) return Response.json([{ id: "MIL", description: "Milano" }]);
+    return Response.json(fixture);
+  };
+  const cases = [
+    [new SalemiProvider(fetcher), "booking.autoservizisalemi.it"],
+    [new FedericoProvider(fetcher), "booking.autolineefederico.it"],
+    [new MarinoBusProvider(fetcher), "booking.marinobus.it"],
+  ] as const;
+
+  for (const [provider, host] of cases) {
+    const result = await provider.searchJourneys({
+      origin: "Roma",
+      destination: "Milano",
+      date: "2026-11-10",
+      adults: 1,
+      children: 0,
+    });
+    assert.equal(result[0]?.bookingUrl, `https://${host}/it/from/Roma/261110/to/Milano/?adulti=1`);
+  }
 });

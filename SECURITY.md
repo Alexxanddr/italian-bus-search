@@ -23,6 +23,7 @@ Do not include real credentials, session cookies, personal data, or destructive 
 The application:
 
 - accepts unauthenticated GET requests;
+- exposes a local read-only MCP stdio process started by its host;
 - makes outbound HTTPS requests only to provider endpoints fixed in source code;
 - keeps caches and rate-limit counters in memory;
 - returns normalized data and structured errors;

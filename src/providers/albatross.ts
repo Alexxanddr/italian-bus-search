@@ -67,6 +67,12 @@ function resolveLocality(localities: Locality[], value: string, kind: "origin" |
   return locality;
 }
 
+function bookingSearchUrl(baseUrl: string, origin: Locality, destination: Locality, input: SearchInput): string {
+  const compactDate = input.date.replaceAll("-", "").slice(2);
+  if (!/^\d{6}$/.test(compactDate)) return baseUrl;
+  return `${baseUrl}it/from/${encodeURIComponent(origin.name)}/${compactDate}/to/${encodeURIComponent(destination.name)}/?adulti=${input.adults}`;
+}
+
 export function parseAlbatrossJourneys(
   payload: unknown,
   provider: string,
@@ -166,7 +172,7 @@ export class AlbatrossProvider implements Provider {
       this.id,
       origin,
       destination,
-      this.config.bookingUrl,
+      bookingSearchUrl(this.config.bookingUrl, origin, destination, input),
     );
     this.journeysCache.set(key, { expiresAt: Date.now() + journeyCacheMs, value: journeys });
     return journeys;

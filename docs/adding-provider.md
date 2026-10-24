@@ -53,7 +53,7 @@ If adding an Albatross tenant, extend `ProviderConfig`, add a thin configured su
 
 ## 5. Register it
 
-Add the adapter to `defaultProviders` in `src/app.ts`. Update the provider expectations in `test/api.test.ts` and the supported-provider table in the README.
+Add the adapter to `createDefaultProviders()` in `src/providers/default.ts`. Update the provider expectations in HTTP and MCP tests and the supported-provider table in the README.
 
 ## 6. Test through public seams
 
@@ -65,6 +65,8 @@ Add tests that prove:
 - caching avoids duplicate upstream calls;
 - unknown locations and incompatible responses use structured errors;
 - the default `/providers` response exposes the adapter as intended.
+- `list_providers` exposes the adapter without contacting its upstream system.
+- journey results carry a verified official `bookingUrl` or a documented official fallback.
 
 Automated tests must not contact the network.
 

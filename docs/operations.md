@@ -10,6 +10,15 @@ PORT=3000 npm start
 
 `PORT` must be an integer from 1 through 65535. The server binds to `127.0.0.1`; exposing it outside the host requires an explicitly configured reverse proxy or a source change reviewed as a security-sensitive operation.
 
+The MCP server has no environment configuration. A host starts the compiled stdio entrypoint:
+
+```sh
+npm run build
+node dist/mcp/stdio.js
+```
+
+The host owns the process lifetime. stdin and stdout carry MCP; diagnostics use stderr. Closing stdin ends the connection, and `SIGINT` closes it gracefully.
+
 ## Outbound connectivity
 
 The process needs HTTPS access to the provider hosts configured in source code:
@@ -47,6 +56,8 @@ Behind a reverse proxy, all requests may appear to originate from the proxy and 
 
 The limiter is process-local and is not a distributed abuse-control system.
 
+Each MCP server instance separately permits 60 combined `search_locations` and `search_journeys` calls per minute. `list_providers` is exempt because it performs no network request.
+
 ## Failure behavior
 
 - A provider timeout or network error becomes `PROVIDER_UNAVAILABLE`.
@@ -59,7 +70,7 @@ Use the `errors` array for provider-level diagnosis. The application intentional
 
 ## Logging and observability
 
-The current process logs only its listening address. It has no structured request logs, metrics, tracing, remote health probes, or persistent audit trail.
+The HTTP process logs only its listening address. The MCP process logs only transport failures to stderr. Neither has structured request logs, metrics, tracing, remote health probes, or a persistent audit trail.
 
 For an internet-facing deployment, add observability at a trusted reverse proxy first. Avoid logging full query strings if future parameters could contain customer data.
 
@@ -69,6 +80,8 @@ There is no custom graceful-shutdown handler. Process termination relies on Node
 
 Horizontal scaling is stateless from a correctness perspective, but cache and limiter state are independent per replica. Account for the resulting upstream request multiplication.
 
+The stdio server is intended for one local host connection. Remote MCP serving, multi-user authentication, and session management are deliberately absent.
+
 ## Deployment checklist
 
 - Confirm provider authorization and redistribution terms for the deployment.
@@ -76,6 +89,7 @@ Horizontal scaling is stateless from a correctness perspective, but cache and li
 - Apply edge rate limiting and request-size limits.
 - Restrict outbound traffic to required provider hosts.
 - Run `npm run check` and `npm audit --audit-level=high` from a clean checkout.
+- For MCP, build first and configure the host to execute the absolute `dist/mcp/stdio.js` path.
 - Monitor provider error codes and response latency.
 - Do not inject provider credentials; current adapters require none.
 - Revalidate live schemas after any `INCOMPATIBLE_RESPONSE` increase.

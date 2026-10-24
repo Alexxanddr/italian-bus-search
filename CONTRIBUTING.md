@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for helping improve Italian Bus Search API.
+Thank you for helping improve Italian Bus Search.
 
 ## Before opening a change
 
@@ -17,7 +17,7 @@ cp .env.example .env
 npm run check
 ```
 
-Use Node.js 22.18 or newer. There are no runtime dependencies or external services required by the test suite.
+Use Node.js 22.18 or newer. No external services are required by the test suite.
 
 ## Development workflow
 
@@ -29,6 +29,7 @@ Use Node.js 22.18 or newer. There are no runtime dependencies or external servic
 
 ```sh
 npm run check
+npm run build
 npm audit --audit-level=high
 git diff --check
 ```
@@ -49,6 +50,7 @@ Follow [Adding a provider](docs/adding-provider.md). Live probes must be authori
 ## Documentation expectations
 
 - HTTP contract changes update [docs/api.md](docs/api.md).
+- MCP tool or stdio changes update [docs/mcp.md](docs/mcp.md).
 - Module or data-flow changes update [docs/architecture.md](docs/architecture.md).
 - Deployment changes update [docs/operations.md](docs/operations.md).
 - Provider evidence and live verification update [docs/research.md](docs/research.md).

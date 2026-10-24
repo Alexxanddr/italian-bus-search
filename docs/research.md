@@ -38,6 +38,7 @@ All four integrations were enabled after the user explicitly confirmed authorize
   - Federico, Roma to Reggio Calabria: 14:40–23:50, EUR 50.00, 9h10, last four seats; and 22:30–07:35, EUR 37.50, 9h05, available.
 - Live API verification through the finished service returned 156 Salemi combinations for Palermo–Marsala on 10 November 2026 and 4 Federico combinations for Roma–Reggio Calabria on 25 October 2026. One-adult/one-child searches succeeded for both tenants.
 - Albatross city searches return locality IDs; journey solutions return one or more physical trip legs. The adapter preserves the first physical departure stop, last physical arrival stop, and joins leg IDs for a stable normalized trip ID.
+- On 24 October 2026, anonymous GET requests to both official booking hosts accepted the shared public route format `/it/from/{origin}/{YYMMDD}/to/{destination}/?adulti={count}` with HTTP 200. The adapter uses this format for manual continuation. No stable child-passenger URL parameter was verified, so the link carries the adult count and the user confirms all passengers on the provider site.
 
 ### MarinoBus
 
@@ -53,6 +54,7 @@ All four integrations were enabled after the user explicitly confirmed authorize
 - These probes needed only `Accept: application/json`, `Content-Type: application/json` for the POST, and `Albatross-Tenant: marinobus`. No login, CAPTCHA, cookie, client signature, browser metadata, or preliminary session request was needed.
 - `https://booking.marinobus.it/robots.txt` returned 404. The [main-site robots.txt](https://marinobus.it/robots.txt) excludes WordPress internals and search pages, but does not name the booking or API hosts.
 - The current [official Conditions of Carriage](https://marinobus.it/wp-content/uploads/2026/02/MarinoBus_Condizioni-di-Trasporto_02-2026.pdf) say third-party portal information may be stale and that the official, binding data is on `marinobus.it`. Searches within that document found no API, automated extraction, or scraping clause; this is not evidence of a redistribution licence.
+- On 24 October 2026, the official booking host accepted `/it/from/Roma/261110/to/Milano/?adulti=1` with HTTP 200, consistent with the indexed public result URLs above. The adapter uses the shared Albatross route format for manual continuation.
 
 ## Inferences
 
@@ -60,6 +62,7 @@ All four integrations were enabled after the user explicitly confirmed authorize
 - Salemi and Federico share the same booking schema while their tenants retain independent routes, fare categories, and prices, so one configured adapter covers both without duplicating parsing logic.
 - MarinoBus exposes the same Albatross contract, so the existing configured adapter supports it without a new parser. The shared synthetic fixture and parser tests cover that response schema, while a live end-to-end smoke test verifies the MarinoBus tenant configuration.
 - The client signature remains deliberately unimplemented because it is unnecessary for anonymous search and would add brittle code without functionality.
+- No stable pre-filled Itabus browser URL was verified. Itabus journeys therefore link to `https://app.itabus.it/` rather than an invented route.
 
 ## Not verified
 
