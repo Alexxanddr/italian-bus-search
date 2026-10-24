@@ -6,7 +6,7 @@ import { createDefaultProviders } from "../providers/default.ts";
 import type { Provider } from "../providers/provider.ts";
 import { createRateLimiter } from "../rate-limit.ts";
 import { SearchService } from "../search.ts";
-import { maximumResultLimit, validateLocationQuery, validateResultLimit, validateSearchInput } from "../validation.ts";
+import { defaultResultLimit, maximumResultLimit, validateLocationQuery, validateResultLimit, validateSearchInput } from "../validation.ts";
 
 const annotations = {
   readOnlyHint: true,
@@ -83,7 +83,7 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
     inputSchema: z.object({
       query: z.string().describe("Partial city, stop, or location name"),
       provider: z.string().optional().describe("Provider ID; omit to search every provider"),
-      limit: z.number().int().min(1).max(maximumResultLimit).default(10),
+      limit: z.number().int().min(1).max(maximumResultLimit).default(defaultResultLimit),
     }),
     outputSchema: z.object({
       locations: z.array(locationSchema),
@@ -122,7 +122,7 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
       adults: z.number().int().min(1).max(9).default(1),
       children: z.number().int().min(0).max(9).default(0),
       provider: z.string().optional().describe("Provider ID; omit to search every provider"),
-      limit: z.number().int().min(1).max(maximumResultLimit).default(10),
+      limit: z.number().int().min(1).max(maximumResultLimit).default(defaultResultLimit),
     }),
     outputSchema: z.object({
       journeys: z.array(journeySchema),
