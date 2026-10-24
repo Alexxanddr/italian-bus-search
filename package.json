@@ -1,8 +1,20 @@
 {
   "name": "italian-bus-search",
   "version": "0.1.0",
-  "private": true,
-  "description": "Unofficial, read-only API for normalized Italian bus journey searches",
+  "mcpName": "io.github.Alexxanddr/italian-bus-search",
+  "description": "Unofficial, read-only API and MCP server for normalized Italian bus journey searches",
+  "keywords": [
+    "italian",
+    "bus",
+    "travel",
+    "coach",
+    "mcp",
+    "model-context-protocol"
+  ],
+  "author": {
+    "name": "Alessandro Sottile",
+    "url": "https://github.com/Alexxanddr"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -12,9 +24,14 @@
     "url": "https://github.com/Alexxanddr/italian-bus-search/issues"
   },
   "homepage": "https://github.com/Alexxanddr/italian-bus-search#readme",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "type": "module",
   "main": "dist/index.js",
   "bin": {
+    "italian-bus-search": "dist/mcp/stdio.js",
     "italian-bus-search-mcp": "dist/mcp/stdio.js"
   },
   "files": [
@@ -22,7 +39,9 @@
     "docs",
     "README.md",
     "SECURITY.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md",
+    "server.json"
   ],
   "engines": {
     "node": ">=22.18"

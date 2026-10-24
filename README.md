@@ -1,5 +1,7 @@
 # Italian Bus Search
 
+<!-- mcp-name: io.github.Alexxanddr/italian-bus-search -->
+
 [![CI](https://github.com/Alexxanddr/italian-bus-search/actions/workflows/ci.yml/badge.svg)](https://github.com/Alexxanddr/italian-bus-search/actions/workflows/ci.yml)
 
 An unofficial, read-only TypeScript service that searches multiple Italian coach operators through HTTP and Model Context Protocol interfaces.
@@ -80,7 +82,20 @@ The complete parameter, response, status, and error contract is in [HTTP interfa
 
 ## MCP server
 
-Build and start the local stdio server:
+The simplest MCP configuration runs the published package directly with `npx`:
+
+```json
+{
+  "mcpServers": {
+    "italian-bus-search": {
+      "command": "npx",
+      "args": ["-y", "italian-bus-search@latest"]
+    }
+  }
+}
+```
+
+Alternatively, build and start the local stdio server:
 
 ```sh
 npm run build
