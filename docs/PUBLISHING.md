@@ -2,7 +2,7 @@
 
 ## Current status
 
-The package is published as `italian-bus-search`; npm user `alexxanddr` owns it. Version `0.1.0` is the initial public release.
+The package is published as `italian-bus-search`; npm user `alexxanddr0` owns it. Version `0.1.0` was the initial public release.
 
 The repository metadata points to `Alexxanddr/italian-bus-search`. Every new publication requires a unique version; npm versions cannot be overwritten.
 
@@ -35,6 +35,8 @@ The repository includes `.github/workflows/publish.yml` using npm Trusted Publis
 - Repository: `italian-bus-search`
 - Workflow filename: `publish.yml`
 - Allowed action: `npm publish`
+
+Trusted Publishing requires Node.js 22.14 or newer and npm 11.5.1 or newer. The release workflow uses Node.js 24 and upgrades npm before publishing; the npm version bundled with older Node.js actions is insufficient.
 
 ## MCP Registry
 

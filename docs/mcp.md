@@ -89,4 +89,4 @@ Generic host configuration after building:
 }
 ```
 
-The npm package remains private and has not been published. Its future executable name is `italian-bus-search-mcp`.
+The public npm package is `italian-bus-search` and exposes both `italian-bus-search` and `italian-bus-search-mcp` executables.

@@ -4,6 +4,11 @@ All notable changes will be documented here. Releases follow Semantic Versioning
 
 ## Unreleased
 
+## 0.1.5 - 2026-10-24
+
+- Fixed GitHub Actions trusted publishing by using npm 11.5.1 or newer.
+- Updated the release actions and official MCP Registry publisher.
+
 ## 0.1.2 - 2026-10-24
 
 - Bumped version to `0.1.2` after `0.1.1`.
