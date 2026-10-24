@@ -9,6 +9,10 @@ permissions:
   contents: read
   id-token: write
 
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -20,12 +24,17 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
-      - run: node -e "const p=require('./package.json'),s=require('./server.json'); if ((process.env.GITHUB_EVENT_NAME==='release' && 'v'+p.version!==process.env.GITHUB_REF_NAME) || s.name!==p.mcpName || s.version!==p.version || s.packages[0].identifier!==p.name || s.packages[0].version!==p.version) process.exit(1)"
+      - name: Verify package and registry metadata
+        run: node -e "const p=require('./package.json'),s=require('./server.json'); if ((process.env.GITHUB_EVENT_NAME==='release' && 'v'+p.version!==process.env.GITHUB_REF_NAME) || s.name!==p.mcpName || s.version!==p.version || s.packages[0].identifier!==p.name || s.packages[0].version!==p.version) process.exit(1)"
       - run: npm ci
       - run: npm run check
       - name: Install MCP Registry publisher
         run: |
-          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+          curl --fail --location --silent --show-error \
+            https://github.com/modelconfigprotocol/registry/releases/download/v1.8.1/mcp-publisher_linux_amd64.tar.gz \
+            | tar xz mcp-publisher || curl --fail --location --silent --show-error \
+            https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_linux_amd64.tar.gz \
+            | tar xz mcp-publisher
       - run: ./mcp-publisher validate server.json
       - name: Publish to npm if needed
         run: |
