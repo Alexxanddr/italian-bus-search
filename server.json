@@ -7,13 +7,13 @@
     "url": "https://github.com/Alexxanddr/italian-bus-search",
     "source": "github"
   },
-  "version": "0.1.2",
+  "version": "0.1.4",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "italian-bus-search",
-      "version": "0.1.2",
+      "version": "0.1.4",
       "transport": {
         "type": "stdio"
       }
