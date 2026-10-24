@@ -1,0 +1,23 @@
+{
+  "name": "italian-bus-search-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Unofficial, read-only API for normalized Italian bus journey searches",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "node --watch --experimental-strip-types src/index.ts",
+    "start": "node --experimental-strip-types src/index.ts",
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "type-check": "tsc --noEmit",
+    "lint": "tsc --noEmit --pretty false",
+    "check": "npm run test && npm run type-check && npm run lint"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "typescript": "^5.9.3"
+  }
+}

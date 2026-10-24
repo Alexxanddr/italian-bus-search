@@ -1,0 +1,31 @@
+{
+  "data": {
+    "outbound": {
+      "routes": [
+        {
+          "direction": "OUTBOUND",
+          "travel_duration": "6h 15m",
+          "service_name": "fixture-trip-1",
+          "available": true,
+          "origin": { "code": "ROM1", "name": "Roma (Tiburtina Terminal)" },
+          "destination": { "code": "MIL1", "name": "Milano Lampugnano" },
+          "departure_timestamp": "2026-11-10T08:00:00+01:00",
+          "arrival_timestamp": "2026-11-10T14:15:00+01:00",
+          "rates": {
+            "available": true,
+            "ITABUS": {
+              "ECONOMY": {
+                "COMFORT": {
+                  "product_family_id": "ECONOMY_COMFORT",
+                  "price": 19.99,
+                  "available": true
+                },
+                "label": "Economy"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

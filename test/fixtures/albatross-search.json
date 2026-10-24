@@ -1,0 +1,31 @@
+[
+  {
+    "trips": [
+      {
+        "trip": {
+          "tripId": "fixture-leg-1",
+          "blocked": false,
+          "canceled": false
+        },
+        "departureStopId": "ROM-STOP",
+        "departureDateTime": "2026-11-10T21:30:00+00:00",
+        "arrivalStopId": "TRANSFER-STOP",
+        "arrivalDateTime": "2026-11-11T04:00:00+00:00"
+      },
+      {
+        "trip": {
+          "tripId": "fixture-leg-2",
+          "blocked": false,
+          "canceled": false
+        },
+        "departureStopId": "TRANSFER-STOP",
+        "departureDateTime": "2026-11-11T04:00:00+00:00",
+        "arrivalStopId": "REG-STOP",
+        "arrivalDateTime": "2026-11-11T06:35:00+00:00"
+      }
+    ],
+    "calculatedPrice": 37.5,
+    "fullPrice": 50,
+    "timezone": "Europe/Rome"
+  }
+]
