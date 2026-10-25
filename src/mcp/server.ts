@@ -164,7 +164,10 @@ function formatJourney(journey: z.infer<typeof journeySchema>): string {
   const price = journey.price === null ? "price unavailable" : `${journey.price.currency} ${journey.price.amount.toFixed(2)}`;
   const availability = journey.available ? "available" : "unavailable";
   const booking = journey.bookingUrl === undefined ? "" : ` — [Continue on ${journey.provider}](${journey.bookingUrl})`;
-  return `- [${journey.provider}] ${journey.origin.name} → ${journey.destination.name}: ${journey.departure} → ${journey.arrival}, ${journey.durationMinutes} min, ${price}, ${availability}${booking}`;
+  const hours = Math.floor(journey.durationMinutes / 60);
+  const minutes = journey.durationMinutes % 60;
+  const duration = hours === 0 ? `${minutes} min` : `${hours}h${minutes === 0 ? "" : ` ${minutes}m`}`;
+  return `- [${journey.provider}] ${journey.origin.name} → ${journey.destination.name}: ${journey.departure} → ${journey.arrival}, ${duration}, ${price}, ${availability}${booking}`;
 }
 
 function formatErrors(errors: Array<z.infer<typeof providerErrorSchema>>): string[] {

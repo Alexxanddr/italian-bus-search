@@ -2,7 +2,10 @@ import { AppError, type Journey, type Location, type SearchInput } from "../doma
 import type { Provider } from "./provider.ts";
 
 const baseUrl = "https://app.itabus.it/on/demandware.store/Sites-ITABUS-Site/it";
-const bookingUrl = "https://app.itabus.it/";
+function bookingUrl(input: SearchInput): string {
+  const params = new URLSearchParams({ origin: input.origin, destination: input.destination, date: input.date, adults: String(input.adults), children: String(input.children) });
+  return `https://app.itabus.it/it/search?${params}`;
+}
 const timeoutMs = 5_000;
 const locationCacheMs = 60 * 60_000;
 const journeyCacheMs = 60_000;
@@ -69,7 +72,7 @@ function cheapestRate(value: unknown): { fare?: string; amount?: number; currenc
   return cheapest === undefined ? { available: rates.available === true } : cheapest;
 }
 
-export function parseItabusJourneys(payload: unknown): Journey[] {
+export function parseItabusJourneys(payload: unknown, input?: SearchInput): Journey[] {
   const root = record(payload, "response");
   const data = record(root.data, "data");
   const outbound = record(data.outbound, "data.outbound");
@@ -101,7 +104,7 @@ export function parseItabusJourneys(payload: unknown): Journey[] {
       available: route.available !== false && rate.available,
       price: rate.amount === undefined ? null : { amount: rate.amount, currency: rate.currency ?? "EUR" },
       ...(rate.fare === undefined ? {} : { fare: rate.fare }),
-      bookingUrl,
+      bookingUrl: input === undefined ? "https://app.itabus.it/" : bookingUrl(input),
     };
   });
 }
@@ -212,7 +215,7 @@ export class ItabusProvider implements Provider {
     const url = `${baseUrl}/Api-Travels?${parameters}`;
     const cached = this.journeysCache.get(url);
     if (cached !== undefined && cached.expiresAt > Date.now()) return cached.value;
-    const journeys = parseItabusJourneys(await this.getJson(url));
+    const journeys = parseItabusJourneys(await this.getJson(url), input);
     this.journeysCache.set(url, { expiresAt: Date.now() + journeyCacheMs, value: journeys });
     return journeys;
   }
