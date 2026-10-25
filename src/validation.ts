@@ -30,6 +30,14 @@ export function validateSearchInput(input: {
   };
 }
 
+export function validateServiceDate(value: unknown): string {
+  const date = requiredText(value, "serviceDate");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new AppError("INVALID_INPUT", "serviceDate must be a real date in YYYY-MM-DD format", 400);
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsed.valueOf()) || parsed.toISOString().slice(0, 10) !== date) throw new AppError("INVALID_INPUT", "serviceDate must be a real date in YYYY-MM-DD format", 400);
+  return date;
+}
+
 export function validateResultLimit(value: unknown): number {
   if (value === undefined) return defaultResultLimit;
   const limit = typeof value === "number" ? value : Number(value);

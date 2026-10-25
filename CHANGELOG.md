@@ -2,7 +2,13 @@
 
 All notable changes will be documented here. Releases follow Semantic Versioning.
 
-## Unreleased
+## 0.2.0 - 2026-10-25
+
+- Added opt-in local NeTEx schedule search for Trenitalia and Italo with source coverage metadata.
+- Added five rail MCP tools while preserving all existing bus contracts.
+- Enabled verified Italo live boards and standalone date-unverified status.
+- Added exact-match Trenitalia lefrecce quote enrichment and ViaggiaTreno train/board adapters with partial-failure behavior.
+- Added Italo anonymous planning-session quote enrichment, exact timetable matching, official search links, and best-effort temporary-resource cleanup.
 
 ## 0.1.9 - 2026-10-25
 

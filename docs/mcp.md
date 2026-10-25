@@ -17,7 +17,7 @@ For a request such as “find buses from Rome to Milan on 15 November,” the ho
 3. call `search_journeys` with a real future date in `YYYY-MM-DD` format;
 4. present the returned journeys and official `bookingUrl` values to the user.
 
-Natural-language interpretation belongs to the host model, not this server.
+Natural-language interpretation belongs to the host model, not this server. Train searches follow the same location-first flow using the train-specific tools.
 
 ## Tools
 
@@ -51,6 +51,14 @@ Returns `journeys`, provider-scoped `errors`, `total` before limiting, and `trun
 
 Salemi, Federico, and MarinoBus links open a public search route with origin, destination, date, and adult count. Itabus currently falls back to its official booking application because no stable public pre-filled URL has been verified. Links only hand the user off for manual continuation.
 
+### Rail tools
+
+- `list_train_providers` lists operators and configured schedule, price, live-status, and station-board capabilities without contacting upstream systems.
+- `search_train_locations` resolves Trenitalia/Italo stations. Names are preferred across operators; IDs are provider-specific. It returns `locations`, provider errors, `total`, and `truncated`.
+- `search_train_journeys` accepts the same date/passenger/limit fields as the bus journey tool and returns departure/arrival times, availability, prices, official search links, `total`, `truncated`, and provider errors. Each result carries `timetableSource`; exact Trenitalia and Italo matches can carry a short-lived price observation. Use only `bookingUrl` for manual purchase continuation.
+- `get_train_status` requires `provider`, `trainNumber`, `serviceDate`, and `origin`. For Trenitalia, `origin` is the train's service origin name or ViaggiaTreno `S...` code. Italo responses remain standalone with `freshness: date_unverified`.
+- `get_station_board` requires `provider`, `stationId`, `stationName`, and `direction`. Both operators are enabled; Trenitalia resolves a non-`S...` timetable ID from the exact station name.
+
 ## Results and errors
 
 Every successful tool call contains both compact text for display and `structuredContent` matching the advertised output schema. A provider failure remains in the `errors` array when another provider succeeds.
@@ -59,7 +67,7 @@ Invalid input, an unknown provider, or a process-local search limit violation re
 
 ## Limits
 
-`search_locations` and `search_journeys` share a process-local allowance of 60 calls per minute for each MCP server instance. `list_providers` is exempt. The provider adapters retain their own successful-result caches and five-second upstream timeouts.
+All bus and rail search/status tools share a process-local allowance of 60 calls per minute for each MCP server instance. `list_providers` and `list_train_providers` are exempt. Provider calls have finite per-request timeouts; Italo's asynchronous quote polling additionally has a bounded 20-second client window.
 
 ## Run locally
 

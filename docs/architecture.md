@@ -11,6 +11,7 @@ The application provides small read-only HTTP and MCP interfaces over incompatib
 | `src/domain.ts` | Normalized data types and application errors |
 | `src/app.ts` | HTTP validation, routing, status selection, and rate limiting |
 | `src/mcp/` | MCP tools and stdio process entrypoint |
+| `src/rail/` | Rail capability contracts, NeTEx schedule parsing/update, and aggregation |
 | `src/validation.ts` | Shared inbound search validation |
 | `src/rate-limit.ts` | Shared process-local limiter factory |
 | `src/search.ts` | Provider selection, concurrency, and partial-result aggregation |
@@ -64,7 +65,7 @@ Changing a domain field affects the HTTP interface, every adapter, fixtures, and
 
 ### MCP module
 
-`src/mcp/server.ts` registers three read-only tools over the same `SearchService`. It owns MCP schemas, bounded result presentation, structured content, and safe tool errors. `createBusMcpServer({ providers })` is its test seam.
+`src/mcp/server.ts` keeps the three bus tools over `SearchService` and registers four rail tools over `RailSearchService`, quote adapters, and live adapters. It owns MCP schemas, bounded result presentation, structured content, and safe tool errors. `createBusMcpServer({ providers, railProviders, railQuoteProviders, railLiveProviders })` is its test seam.
 
 `src/mcp/stdio.ts` only owns process transport and shutdown. It writes protocol traffic to stdout through the SDK and diagnostics to stderr. The complete interface is in [mcp.md](mcp.md).
 
@@ -165,5 +166,9 @@ The automated suite is deterministic and offline. Live checks are separate, low-
 - Liveness does not imply provider readiness.
 - Rate limiting is suitable for a single local process, not a distributed public edge.
 - MCP is local stdio only; no remote MCP transport or authentication is implemented.
+- Rail schedule, quote, and live capabilities are separate. Local NeTEx schedules, exact-match Trenitalia and Italo quotes, ViaggiaTreno live reads, and verified Italo live reads are enabled. Italo quote state is temporary and cleaned up best-effort; fare selection and purchase are separate and absent.
+- NeTEx refresh parses the large XML feeds as streams and atomically writes compact JSON gzip caches; runtime searches never parse XML.
+- Italo In Viaggio is enabled only for standalone train status and boards. Its train status is never joined to a dated schedule because the source cannot prove the service date.
+- Rail routes are direct services from one timetable dataset. Cross-operator routing is not implemented.
 
 Production-hardening implications are documented in [operations.md](operations.md).

@@ -1,10 +1,10 @@
-# Italian Bus Search
+# Italian Bus and Rail Search
 
 <!-- mcp-name: io.github.Alexxanddr/italian-bus-search -->
 
 [![CI](https://github.com/Alexxanddr/italian-bus-search/actions/workflows/ci.yml/badge.svg)](https://github.com/Alexxanddr/italian-bus-search/actions/workflows/ci.yml)
 
-An unofficial, read-only TypeScript service that searches multiple Italian coach operators through HTTP and Model Context Protocol interfaces.
+An unofficial, read-only TypeScript service for Italian coach searches and local NeTEx rail timetables through HTTP and Model Context Protocol interfaces.
 
 The project hides provider-specific station catalogs, request formats, fare structures, and multi-leg responses behind one shared application core. It never performs login, booking, seat selection, or payment operations.
 
@@ -16,14 +16,15 @@ The project hides provider-specific station catalogs, request formats, fare stru
 - One response model for locations and journeys across different booking platforms.
 - Live adapters for five operators.
 - Partial results when one provider fails and another succeeds.
-- A local stdio MCP server with structured, read-only tools.
+- A local stdio MCP server with backward-compatible bus tools and separate rail tools.
+- Scheduled Trenitalia and Italo searches from operator datasets installed by the deployer.
 - Official links for continuing a search manually on provider sites.
 - Structured, provider-scoped errors instead of leaked upstream responses.
-- Five-second upstream timeouts.
+- Finite upstream request timeouts and bounded asynchronous quote polling.
 - One-hour location caches and 60-second journey caches.
 - Per-client in-memory rate limiting at 60 requests per minute.
 - Offline tests with synthetic fixtures; the test suite never contacts provider sites.
-- A small runtime dependency surface: the official MCP SDK and Zod.
+- A small runtime dependency surface: the official MCP SDK, Zod, and the streaming `saxes` parser.
 
 ## Supported providers
 
@@ -34,9 +35,10 @@ The project hides provider-specific station catalogs, request formats, fare stru
 | `federico` | Autolinee Federico | Albatross tenant | Live | Live |
 | `marinobus` | MarinoBus | Albatross tenant | Live | Live |
 | `flixbus` | FlixBus | Global FlixBus search API | Live | Live |
-| `flixbus` | FlixBus | Global FlixBus search API | Live | Live |
 
 Provider behavior and the evidence behind each integration are recorded in [Provider research](docs/research.md).
+
+Rail schedule support uses compact local caches refreshed from Italian NAP NeTEx with `npm run build && npm run rail:update`. Optional `TRENITALIA_NETEX_PATH` and `ITALO_NETEX_PATH` variables override their paths. Trenitalia and Italo prices, ViaggiaTreno live data, and Italo live boards/standalone status are enabled. Italo quote searches use an anonymous temporary planning session and clean it up best-effort.
 
 ## Requirements
 
@@ -58,6 +60,7 @@ The server listens on `http://127.0.0.1:3000` by default.
 ```sh
 curl http://127.0.0.1:3000/health
 curl http://127.0.0.1:3000/providers
+curl http://127.0.0.1:3000/train-providers
 curl 'http://127.0.0.1:3000/locations?query=Roma&provider=marinobus'
 ```
 
@@ -75,8 +78,13 @@ curl 'http://127.0.0.1:3000/journeys?origin=Roma&destination=Milano&date=YYYY-MM
 |---|---|---|
 | `GET` | `/health` | Process liveness |
 | `GET` | `/providers` | Adapter status and operational reason |
+| `GET` | `/train-providers` | Train operators and configured schedule/price/live capabilities |
 | `GET` | `/locations` | Provider location search |
 | `GET` | `/journeys` | Normalized one-way journey search |
+| `GET` | `/train-locations` | Trenitalia/Italo station search |
+| `GET` | `/train-journeys` | Scheduled direct rail journeys |
+| `GET` | `/train-status` | Standalone live status where enabled |
+| `GET` | `/station-board` | Live arrivals/departures where enabled |
 
 `/locations` and `/journeys` accept an optional `provider` parameter. Without it, all providers are queried independently and successful data is preserved alongside provider-scoped errors.
 
@@ -104,7 +112,7 @@ npm run build
 npm run mcp:built
 ```
 
-It exposes `list_providers`, `search_locations`, and `search_journeys`. A host model can turn “find buses from Rome to Milan on 15 November” into the location and journey tool calls, then show normalized options with official links for manual purchase.
+The existing `list_providers`, `search_locations`, and `search_journeys` bus tools are unchanged. Rail adds `list_train_providers`, `search_train_locations`, `search_train_journeys`, `get_train_status`, and `get_station_board`. Trenitalia and Italo price and live adapters are enabled; Italo live tools retain date-unverified semantics.
 
 ```json
 {
@@ -161,7 +169,7 @@ The default server deliberately binds to loopback and keeps rate-limit and cache
 
 - Searches are one-way only.
 - Availability is a provider-reported signal, not a seat or price guarantee.
-- Prices and schedules can change between search and purchase.
+- Prices and schedules can change between search and purchase; rail schedule results expose dataset validity and publication metadata.
 - Caches and rate limits reset when the process restarts and are not shared across replicas.
 - Upstream interfaces are unofficial and can change without notice.
 - Both interfaces intentionally exclude accounts, bookings, payments, and CAPTCHA handling.

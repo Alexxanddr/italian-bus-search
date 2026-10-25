@@ -11,6 +11,17 @@ This document is the authoritative external contract of the service.
 - Provider aggregation is concurrent and failure-isolated.
 - Datetimes are ISO 8601 strings copied from the provider response.
 - Prices are decimal major currency units, currently normalized to the provider-reported currency or EUR.
+- Existing HTTP bus routes and response shapes are unchanged. Rail uses separate routes.
+
+## Rail endpoints
+
+- `GET /train-providers`
+- `GET /train-locations?query=...&provider=trenitalia|italo`
+- `GET /train-journeys?origin=...&destination=...&date=YYYY-MM-DD&provider=...`
+- `GET /train-status?provider=italo&trainNumber=...&serviceDate=...&origin=...`
+- `GET /station-board?provider=italo&stationId=RMT&stationName=Roma%20Termini&direction=arrivals|departures`
+
+`/train-providers` reports the configured schedule, price, live-status, and station-board capabilities without making upstream calls. Schedule results always include timetable publication/validity metadata. Exact Trenitalia and Italo timetable identities may be enriched with volatile price and saleability observations; quote failure preserves the schedule and adds a provider error. Every priced result includes `observedAt`, `source`, fare and class when supplied, plus the official `bookingUrl`. Italo train status is standalone with `freshness: "date_unverified"`; it is never joined automatically to a dated schedule. Trenitalia live status requires the train's service origin name or ViaggiaTreno `S...` code, not merely the passenger's boarding station.
 
 ## `GET /health`
 
@@ -165,5 +176,7 @@ Provider errors inside aggregate responses use this shape:
 | `PROVIDER_UNAVAILABLE` | Timeout, network failure, or non-success upstream status | aggregate response |
 | `INCOMPATIBLE_RESPONSE` | Upstream JSON or required fields do not match the adapter | aggregate response |
 | `RATE_LIMITED` | Local or upstream rate limit was reached | `429` locally; aggregate upstream |
+
+Rail MCP errors additionally distinguish `AMBIGUOUS_LOCATION`, `COVERAGE_UNAVAILABLE`, `QUOTE_UNAVAILABLE`, `LIVE_STATUS_UNAVAILABLE`, and `TRAIN_NOT_FOUND`.
 
 Messages are safe summaries. Upstream bodies, cookies, tokens, and stack traces are not returned.

@@ -2,7 +2,7 @@
 
 ## Runtime configuration
 
-The only configuration value is `PORT`.
+The HTTP listener configuration value is `PORT`.
 
 ```sh
 PORT=3000 npm start
@@ -10,7 +10,16 @@ PORT=3000 npm start
 
 `PORT` must be an integer from 1 through 65535. The server binds to `127.0.0.1`; exposing it outside the host requires an explicitly configured reverse proxy or a source change reviewed as a security-sensitive operation.
 
-The MCP server has no environment configuration. A host starts the compiled stdio entrypoint:
+Rail schedules are opt-in local files:
+
+| Variable | Meaning |
+|---|---|
+| `TRENITALIA_NETEX_PATH` | Optional cache override; defaults to `data/trenitalia-timetable.json.gz` |
+| `ITALO_NETEX_PATH` | Optional cache override; defaults to `data/italo-timetable.json.gz` |
+
+The update command downloads the two reviewed public `checkedResource` distributions directly from allowlisted `https://www.cciss.it` URLs. It parses gzip/XML as a stream, writes a compact validated JSON gzip cache, and atomically replaces the previous cache. Schedule searches fail closed outside dataset validity. Generated caches remain local and are ignored by Git.
+
+A host starts the compiled stdio entrypoint:
 
 ```sh
 npm run build
@@ -27,6 +36,13 @@ The process needs HTTPS access to the provider hosts configured in source code:
 - `api.autoservizisalemi.it`
 - `api.autolineefederico.it`
 - `api.marinobus.it`
+- `www.lefrecce.it`
+- `www.viaggiatreno.it` (HTTP, as used by the official client)
+- `italoinviaggio.italotreno.com`
+- `biglietti.italotreno.com`
+- `api-biglietti.italotreno.com`
+
+`npm run rail:update` additionally needs access to `www.cciss.it`. Client input and environment variables cannot choose an outbound URL.
 
 Provider URLs are not supplied by clients. DNS, TLS, timeout, non-success status, and JSON failures become structured provider errors.
 
@@ -38,7 +54,7 @@ Use `GET /providers` to inspect configured adapter status, but note that it also
 
 ## Caches
 
-Successful journeys are cached for 60 seconds. Locations, destination catalogs, and Albatross fare categories are cached for one hour. Caches:
+Successful bus journeys and rail quote observations are cached for 60 seconds. Locations, destination catalogs, and Albatross fare categories are cached for one hour. Caches:
 
 - live only in process memory;
 - are not shared between replicas;
@@ -56,15 +72,16 @@ Behind a reverse proxy, all requests may appear to originate from the proxy and 
 
 The limiter is process-local and is not a distributed abuse-control system.
 
-Each MCP server instance separately permits 60 combined `search_locations` and `search_journeys` calls per minute. `list_providers` is exempt because it performs no network request.
+Each MCP server instance permits 60 combined bus and rail tool calls per minute. `list_providers` is exempt because it performs no network request.
 
 ## Failure behavior
 
-- A provider timeout or network error becomes `PROVIDER_UNAVAILABLE`.
+- A schedule provider timeout or network error becomes `PROVIDER_UNAVAILABLE`; quote and live failures use `QUOTE_UNAVAILABLE` and `LIVE_STATUS_UNAVAILABLE`.
 - Upstream HTTP 429 becomes `RATE_LIMITED` for that provider.
 - Invalid JSON or a schema mismatch becomes `INCOMPATIBLE_RESPONSE`.
 - A failure from one provider does not discard another provider's successful data.
-- If no journey exists and provider errors are present, `/journeys` returns HTTP 503.
+- Quote failure does not remove a scheduled rail journey; it remains with `price: null` and a provider-scoped error.
+- If no journey exists and provider errors are present, the corresponding journey route returns HTTP 503.
 
 Use the `errors` array for provider-level diagnosis. The application intentionally omits upstream bodies and stack traces.
 
@@ -85,6 +102,7 @@ The stdio server is intended for one local host connection. Remote MCP serving, 
 ## Deployment checklist
 
 - Confirm provider authorization and redistribution terms for the deployment.
+- Run `npm run build && npm run rail:update`; optionally set the two `*_NETEX_PATH` overrides before both update and runtime.
 - Keep the application private or place it behind a trusted TLS reverse proxy.
 - Apply edge rate limiting and request-size limits.
 - Restrict outbound traffic to required provider hosts.

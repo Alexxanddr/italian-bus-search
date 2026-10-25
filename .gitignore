@@ -8,3 +8,6 @@ dist/
 .claude-flow/
 .cloudeflow/
 *.tgz
+data/*.xml
+data/*.xml.gz
+data/*.json.gz

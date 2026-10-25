@@ -6,12 +6,19 @@ export type ErrorCode =
   | "INCOMPATIBLE_RESPONSE"
   | "RATE_LIMITED";
 
+export type RailErrorCode = ErrorCode
+  | "AMBIGUOUS_LOCATION"
+  | "COVERAGE_UNAVAILABLE"
+  | "QUOTE_UNAVAILABLE"
+  | "LIVE_STATUS_UNAVAILABLE"
+  | "TRAIN_NOT_FOUND";
+
 export class AppError extends Error {
-  readonly code: ErrorCode;
+  readonly code: RailErrorCode;
   readonly status: number;
 
   constructor(
-    code: ErrorCode,
+    code: RailErrorCode,
     message: string,
     status: number,
   ) {
@@ -55,6 +62,66 @@ export type SearchInput = {
 
 export type ProviderError = {
   provider: string;
-  code: ErrorCode;
+  code: RailErrorCode;
   message: string;
+};
+
+export type DataSource = {
+  source: string;
+  publishedAt: string;
+  validFrom: string;
+  validThrough: string;
+};
+
+export type RailPrice = {
+  amount: number;
+  currency: string;
+  fareName?: string;
+  travelClass?: string;
+  observedAt: string;
+  source: string;
+};
+
+export type RailLeg = {
+  trainNumber: string;
+  origin: { id: string; name: string };
+  destination: { id: string; name: string };
+  departure: string;
+  arrival: string;
+};
+
+export type RailLiveStatus = {
+  observedAt: string;
+  source: string;
+  freshness: "current" | "stale" | "date_unverified";
+  delayMinutes?: number;
+  cancelled?: boolean;
+};
+
+export type RailJourney = {
+  provider: "trenitalia" | "italo";
+  journeyId: string;
+  origin: { id: string; name: string };
+  destination: { id: string; name: string };
+  departure: string;
+  arrival: string;
+  durationMinutes: number;
+  changes: number;
+  legs: RailLeg[];
+  available: boolean | null;
+  price: RailPrice | null;
+  bookingUrl?: string;
+  timetableSource: DataSource;
+  liveStatus?: RailLiveStatus;
+};
+
+export type RailSearchInput = SearchInput;
+
+export type StationBoard = {
+  provider: "trenitalia" | "italo";
+  station: { id: string; name: string };
+  direction: "arrivals" | "departures";
+  observedAt: string;
+  source: string;
+  services: Array<{ trainNumber: string; scheduledTime: string; delayMinutes?: number; cancelled?: boolean }>;
 };

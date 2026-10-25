@@ -2,11 +2,23 @@
 
 Research date: 24 October 2026.
 
+## Rail evidence — 25 October 2026
+
+- The official Italian NAP catalog lists Trenitalia NeTEx Level 1 and Italo NeTEx Level 1/2 datasets containing stops, calendars, routes, services, and timetables.
+- The verified public `checkedResource` downloads are Asset 1080596 for Trenitalia and Asset 1814124 for Italo. The updater fixes these URLs in source and accepts redirects only within the official CCISS host. The data remain local because public download does not establish redistribution rights.
+- Trenitalia lefrecce quotes and ViaggiaTreno live requests were independently reverified on 25 October 2026 and enabled for the owner's authorized deployment context. After the owner explicitly expanded scope, the Italo anonymous planning operation was independently captured and enabled for prices; it creates a temporary `/api/v1/booking/{id}` resource that the adapter deletes best-effort. Browser and adapter tests cover one adult and one-adult/one-child searches. Fare selection and purchase remain excluded. Italo In Viaggio status and boards remain enabled.
+- Synthetic fixtures model only the NeTEx fields consumed by the native TypeScript parser. They contain invented IDs and no captured carrier response, credential, cookie, or personal data.
+- Official homepages are used only as manual booking fallbacks; no unverified pre-filled deep link is emitted.
+
+Rail capability classification: schedules are local official-dataset observations with publication/validity metadata; Trenitalia and Italo prices are volatile observations joined only by exact train/times; Italo live observations are standalone and date-unverified. Public website availability and the repository owner's instruction are not represented as carrier authorization or redistribution rights.
+
 This document separates observed evidence from inference. No login, purchase, payment, CAPTCHA bypass, credential, or high-volume request was used.
 
 ## Decision
 
-All four integrations were enabled after the user explicitly confirmed authorized live access on 24 October 2026. This authorization is specific to the current deployment context; downstream users must obtain their own permission. The adapters use a five-second timeout and in-memory caches and perform no login, purchase, payment, or CAPTCHA action.
+All four integrations were enabled after the user explicitly confirmed authorized live access on 24 October 2026. This authorization is specific to the current deployment context; downstream users must obtain their own permission. Remote calls use finite five- or eight-second request timeouts, with a bounded 20-second Italo asynchronous polling window, and in-memory caches. They perform no customer login, purchase, payment, or CAPTCHA action.
+
+Trainline was reviewed only as a possible future authorized quote source. Its official Global API is a partner product requiring commercial onboarding and integration support, while its published business terms forbid scraping or direct API access without prior written consent. No Trainline adapter, site scraping, or undocumented endpoint was added.
 
 ## Observed evidence
 

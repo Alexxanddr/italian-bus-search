@@ -30,6 +30,10 @@ A provider-owned place that can be used in search. Depending on the provider, it
 
 A successful aggregate response containing data from at least one provider and structured errors for other providers that could not answer.
 
+### Timetable source
+
+Publication and validity metadata for the local NeTEx dataset that produced a scheduled rail journey. It is separate from volatile quote and live-status observations.
+
 ### Provider
 
 A passenger transport operator reachable through one adapter. Its stable machine identifier is used by the `provider` query parameter.

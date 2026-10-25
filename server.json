@@ -1,19 +1,19 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Alexxanddr/italian-bus-search",
-  "title": "Italian Bus Search MCP Server",
-  "description": "Read-only bus journey searches across Itabus, Salemi, Federico, MarinoBus, and FlixBus.",
+  "title": "Italian Bus and Rail Search MCP Server",
+  "description": "Read-only Italian bus searches and local NeTEx rail schedules.",
   "repository": {
     "url": "https://github.com/Alexxanddr/italian-bus-search",
     "source": "github"
   },
-  "version": "0.1.13",
+  "version": "0.2.0",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "italian-bus-search",
-      "version": "0.1.13",
+      "version": "0.2.0",
       "transport": {
         "type": "stdio"
       }
