@@ -2,6 +2,11 @@
 
 All notable changes will be documented here. Releases follow Semantic Versioning.
 
+## 0.3.1 - 2026-10-26
+
+- Updated repository, issue tracker, documentation, and container image references after the GitHub repository rename to `italian-travel-search`.
+- Preserved the `italian-bus-search` npm package, MCP server, executable, and deployed service names for compatibility.
+
 ## 0.3.0 - 2026-10-26
 
 - Added stateless MCP Streamable HTTP at `/mcp` while preserving stdio.
