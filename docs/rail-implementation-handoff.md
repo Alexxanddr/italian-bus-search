@@ -2,7 +2,7 @@
 
 ## Objective
 
-Extend `italian-bus-search` into a read-only multimodal Italian journey service while preserving its current TypeScript architecture, provider isolation, partial-result behavior, HTTP API, MCP server, offline test strategy, and manual purchase flow.
+Extend `italian-travel-search` into a read-only multimodal Italian journey service while preserving its current TypeScript architecture, provider isolation, partial-result behavior, HTTP API, MCP server, offline test strategy, and manual purchase flow.
 
 The first rail release must support:
 
@@ -272,7 +272,7 @@ PONYTAIL MODE ACTIVE — level: full
 
 Agisci come un principal software engineer specializzato in TypeScript, MCP, integrazioni di trasporto, modellazione di dati temporali e adapter resilienti verso API esterne.
 
-Lavora nel repository software/italian-bus-search e implementa il piano descritto in docs/rail-implementation-handoff.md. Prima di modificare codice leggi integralmente AGENTS.md e tutti i documenti indicati nella sezione “Required reading”. L'architettura TypeScript esistente, i provider isolati, i risultati parziali, i test offline e la compatibilità dei tool bus sono vincoli, non suggerimenti.
+Lavora nel repository software/italian-travel-search e implementa il piano descritto in docs/rail-implementation-handoff.md. Prima di modificare codice leggi integralmente AGENTS.md e tutti i documenti indicati nella sezione “Required reading”. L'architettura TypeScript esistente, i provider isolati, i risultati parziali, i test offline e la compatibilità dei tool bus sono vincoli, non suggerimenti.
 
 Inizia dalla Phase 0. Non copiare codice dai repository Python analizzati: usa le fonti solo come documentazione di interoperabilità e reimplementa nativamente. Non abilitare una capacità Italo o Trenitalia finché endpoint, fixture, requisiti di sessione, errori e decisione di autorizzazione non sono documentati. Mantieni prezzi e live status opzionali e con provenienza/freshness esplicite.
 

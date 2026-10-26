@@ -1,7 +1,7 @@
 {
-  "name": "italian-bus-search",
-  "version": "0.3.1",
-  "mcpName": "io.github.Alexxanddr/italian-bus-search",
+  "name": "italian-travel-search",
+  "version": "0.3.2",
+  "mcpName": "io.github.Alexxanddr/italian-travel-search",
   "description": "Read-only Italian bus search and local NeTEx rail timetable MCP server",
   "keywords": [
     "italian",
@@ -33,8 +33,8 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "italian-bus-search": "dist/mcp/stdio.js",
-    "italian-bus-search-mcp": "dist/mcp/stdio.js"
+    "italian-travel-search": "dist/mcp/stdio.js",
+    "italian-travel-search-mcp": "dist/mcp/stdio.js"
   },
   "files": [
     "dist",

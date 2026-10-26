@@ -2,7 +2,7 @@
 
 ## Current status
 
-The package is published as `italian-bus-search`; npm user `alexxanddr0` owns it. Version `0.1.0` was the initial public release.
+The package is published as `italian-travel-search`; npm user `alexxanddr0` owns it.
 
 The repository metadata points to `Alexxanddr/italian-travel-search`. Every new publication requires a unique version; npm versions cannot be overwritten.
 

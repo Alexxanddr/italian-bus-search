@@ -2,10 +2,13 @@
 
 All notable changes will be documented here. Releases follow Semantic Versioning.
 
+## 0.3.2 - 2026-10-26
+
+- Renamed the npm package, MCP Registry identity, executable, server, deployment, and documentation to `italian-travel-search`.
+
 ## 0.3.1 - 2026-10-26
 
 - Updated repository, issue tracker, documentation, and container image references after the GitHub repository rename to `italian-travel-search`.
-- Preserved the `italian-bus-search` npm package, MCP server, executable, and deployed service names for compatibility.
 
 ## 0.3.0 - 2026-10-26
 
@@ -52,7 +55,7 @@ All notable changes will be documented here. Releases follow Semantic Versioning
 
 ## 0.1.0 - 2026-10-24
 
-- Initial public release of `italian-bus-search` API and MCP server.
+- Initial public release of the API and MCP server.
 - Read-only normalized journey and location search for Itabus, Autoservizi Salemi, Autolinee Federico, and MarinoBus.
 - Local stdio MCP server support (`list_providers`, `search_locations`, `search_journeys`).
 - MIT License, public repository metadata, and automated npm/MCP Registry publishing.

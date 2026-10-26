@@ -89,9 +89,9 @@ Generic host configuration after building:
 ```json
 {
   "mcpServers": {
-    "italian-bus-search": {
+    "italian-travel-search": {
       "command": "node",
-      "args": ["/absolute/path/to/italian-bus-search/dist/mcp/stdio.js"]
+      "args": ["/absolute/path/to/italian-travel-search/dist/mcp/stdio.js"]
     }
   }
 }
@@ -102,8 +102,8 @@ MCPHub Streamable HTTP configuration:
 ```json
 {
   "type": "streamable-http",
-  "url": "http://italian-bus-search.extra-tools.svc:3000/mcp"
+  "url": "http://italian-travel-search.extra-tools.svc:3000/mcp"
 }
 ```
 
-The public npm package is `italian-bus-search` and exposes both `italian-bus-search` and `italian-bus-search-mcp` executables.
+The public npm package is `italian-travel-search` and exposes the `italian-travel-search` and `italian-travel-search-mcp` executables.

@@ -1,6 +1,6 @@
-# Italian Bus and Rail Search
+# Italian Travel Search
 
-<!-- mcp-name: io.github.Alexxanddr/italian-bus-search -->
+<!-- mcp-name: io.github.Alexxanddr/italian-travel-search -->
 
 [![CI](https://github.com/Alexxanddr/italian-travel-search/actions/workflows/ci.yml/badge.svg)](https://github.com/Alexxanddr/italian-travel-search/actions/workflows/ci.yml)
 
@@ -98,9 +98,9 @@ The simplest MCP configuration runs the published package directly with `npx`:
 ```json
 {
   "mcpServers": {
-    "italian-bus-search": {
+    "italian-travel-search": {
       "command": "npx",
-      "args": ["-y", "italian-bus-search@latest"]
+      "args": ["-y", "italian-travel-search@latest"]
     }
   }
 }
@@ -118,15 +118,15 @@ The existing `list_providers`, `search_locations`, and `search_journeys` bus too
 ```json
 {
   "mcpServers": {
-    "italian-bus-search": {
+    "italian-travel-search": {
       "command": "node",
-      "args": ["/absolute/path/to/italian-bus-search/dist/mcp/stdio.js"]
+      "args": ["/absolute/path/to/italian-travel-search/dist/mcp/stdio.js"]
     }
   }
 }
 ```
 
-For a container or remote MCPHub deployment, start the HTTP process and point the client to `http://italian-bus-search:3000/mcp`. The container image is `ghcr.io/alexxanddr/italian-travel-search:latest`; populate the two timetable paths with `node dist/rail/update.js` before starting it.
+For a container or remote MCPHub deployment, start the HTTP process and point the client to `http://italian-travel-search:3000/mcp`. The container image is `ghcr.io/alexxanddr/italian-travel-search:latest`; populate the two timetable paths with `node dist/rail/update.js` before starting it.
 
 See [MCP interface](docs/mcp.md) for the authoritative tool contract, limits, errors, and development command.
 
