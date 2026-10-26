@@ -44,9 +44,12 @@ test("returns provider-scoped partial results", async () => {
 
 test("enriches exact timetable identities and preserves schedules when quote fails", async () => {
   const schedule = await provider("trenitalia");
-  const quote: RailQuoteProvider = { id: "trenitalia", searchQuotes: async () => [{ trainNumbers: ["FR 1000"], departure: "2027-01-15T08:00:00+01:00", arrival: "2027-01-15T11:10:00+01:00", available: true, price: { amount: 44.9, currency: "EUR", observedAt: "2026-10-25T10:00:00Z", source: "synthetic" } }] };
-  const enriched = await new RailSearchService([schedule], [quote]).searchJourneys(input);
+  let quotedInput = input;
+  const quote: RailQuoteProvider = { id: "trenitalia", searchQuotes: async (value) => { quotedInput = value; return [{ trainNumbers: ["FR 1000"], departure: "2027-01-15T08:00:00+01:00", arrival: "2027-01-15T11:10:00+01:00", available: true, price: { amount: 44.9, currency: "EUR", observedAt: "2026-10-25T10:00:00Z", source: "synthetic" } }]; } };
+  const enriched = await new RailSearchService([schedule], [quote]).searchJourneys({ ...input, origin: "trenitalia-ROM", destination: "trenitalia-MIL" });
   assert.equal(enriched.journeys[0]?.price?.amount, 44.9);
+  assert.equal(quotedInput.origin, "Roma Termini");
+  assert.equal(quotedInput.destination, "Milano Centrale");
   const partial = await new RailSearchService([schedule], [{ id: "trenitalia", searchQuotes: async () => { throw new AppError("QUOTE_UNAVAILABLE", "down", 503); } }]).searchJourneys(input);
   assert.equal(partial.journeys.length, 1);
   assert.equal(partial.journeys[0]?.price, null);

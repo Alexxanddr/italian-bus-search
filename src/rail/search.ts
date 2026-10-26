@@ -35,7 +35,11 @@ export class RailSearchService {
         const quoteProvider = this.quoteProviders.find(({ id }) => id === provider.id);
         const quoteErrors: ProviderError[] = [];
         if (quoteProvider !== undefined) {
-          try { const quotes = await quoteProvider.searchQuotes(input); journeys = journeys.map((journey) => enrich(journey, quotes)); }
+          try {
+            const quoteInput = journeys[0] === undefined ? input : { ...input, origin: journeys[0].origin.name, destination: journeys[0].destination.name };
+            const quotes = await quoteProvider.searchQuotes(quoteInput);
+            journeys = journeys.map((journey) => enrich(journey, quotes));
+          }
           catch (error) { quoteErrors.push(providerError(provider.id, error, "QUOTE_UNAVAILABLE")); }
         }
         return journeys.length === 0
