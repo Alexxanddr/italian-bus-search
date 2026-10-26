@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
+import { Client, InMemoryTransport, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 
 import { AppError, type Journey } from "../src/domain.ts";
+import { createMcpApp } from "../src/app.ts";
 import { createBusMcpServer } from "../src/mcp/server.ts";
 import type { Provider } from "../src/providers/provider.ts";
 import type { RailLiveProvider, RailQuoteProvider, RailScheduleProvider } from "../src/rail/provider.ts";
@@ -52,6 +53,21 @@ async function connect(providers: readonly Provider[], railProviders: readonly R
   await client.connect(clientTransport);
   return { client, server };
 }
+
+test("serves MCP over stateless streamable HTTP alongside the REST API", async (context) => {
+  const app = createMcpApp();
+  const client = new Client({ name: "http-test-client", version: "1.0.0" });
+  await client.connect(new StreamableHTTPClientTransport(new URL("http://localhost/mcp"), {
+    fetch: (input, init) => app.fetch(new Request(input, init)),
+  }));
+  context.after(async () => {
+    await client.close();
+    await app.close();
+  });
+
+  const tools = await client.listTools();
+  assert.equal(tools.tools.length, 8);
+});
 
 test("discovers all read-only MCP tools and lists bus providers without network calls", async (context) => {
   const calls = { locations: 0, journeys: 0 };

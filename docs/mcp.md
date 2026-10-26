@@ -4,7 +4,7 @@ This document is the authoritative contract for the local Model Context Protocol
 
 ## Transport and lifecycle
 
-The server uses MCP over stdio. A host starts `dist/mcp/stdio.js`, sends protocol messages on stdin, and reads responses from stdout. Diagnostics use stderr so they cannot corrupt the protocol stream.
+The same tools are available over local stdio and stateless Streamable HTTP. A local host starts `dist/mcp/stdio.js`; a service host starts `dist/index.js` and mounts `/mcp`. Each HTTP exchange gets a fresh MCP server instance, so MCPHub needs no sticky sessions and the bus tool contract remains unchanged. Diagnostics use stderr.
 
 The server is read-only. It exposes search tools and never logs in, books, selects a seat, collects customer data, or pays a provider. Closing stdin ends the transport; `SIGINT` closes it gracefully.
 
@@ -94,6 +94,15 @@ Generic host configuration after building:
       "args": ["/absolute/path/to/italian-bus-search/dist/mcp/stdio.js"]
     }
   }
+}
+```
+
+MCPHub Streamable HTTP configuration:
+
+```json
+{
+  "type": "streamable-http",
+  "url": "http://italian-bus-search.extra-tools.svc:3000/mcp"
 }
 ```
 

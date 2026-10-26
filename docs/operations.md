@@ -2,13 +2,13 @@
 
 ## Runtime configuration
 
-The HTTP listener configuration value is `PORT`.
+The HTTP listener configuration values are `HOST` and `PORT`.
 
 ```sh
-PORT=3000 npm start
+HOST=127.0.0.1 PORT=3000 npm start
 ```
 
-`PORT` must be an integer from 1 through 65535. The server binds to `127.0.0.1`; exposing it outside the host requires an explicitly configured reverse proxy or a source change reviewed as a security-sensitive operation.
+`PORT` must be an integer from 1 through 65535. `HOST` defaults to `127.0.0.1`; the container sets it to `0.0.0.0` and must remain reachable only through the cluster-internal Service.
 
 Rail schedules are opt-in local files:
 
@@ -97,7 +97,7 @@ There is no custom graceful-shutdown handler. Process termination relies on Node
 
 Horizontal scaling is stateless from a correctness perspective, but cache and limiter state are independent per replica. Account for the resulting upstream request multiplication.
 
-The stdio server is intended for one local host connection. Remote MCP serving, multi-user authentication, and session management are deliberately absent.
+The stdio server is intended for one local host connection. `/mcp` is stateless and intended for a private service network; authentication and public ingress are deliberately absent.
 
 ## Deployment checklist
 
@@ -108,6 +108,7 @@ The stdio server is intended for one local host connection. Remote MCP serving, 
 - Restrict outbound traffic to required provider hosts.
 - Run `npm run check` and `npm audit --audit-level=high` from a clean checkout.
 - For MCP, build first and configure the host to execute the absolute `dist/mcp/stdio.js` path.
+- For container MCP, initialize the two caches with `node dist/rail/update.js`, mount them at the configured paths, and use `/mcp` over the cluster-internal Service.
 - Monitor provider error codes and response latency.
 - Do not inject provider credentials; current adapters require none.
 - Revalidate live schemas after any `INCOMPATIBLE_RESPONSE` increase.

@@ -2,6 +2,12 @@
 
 All notable changes will be documented here. Releases follow Semantic Versioning.
 
+## 0.3.0 - 2026-10-26
+
+- Added stateless MCP Streamable HTTP at `/mcp` while preserving stdio.
+- Added a non-root OCI image and automated GHCR publishing.
+- Documented container initialization of the authorized NAP timetable caches.
+
 ## 0.2.0 - 2026-10-25
 
 - Added opt-in local NeTEx schedule search for Trenitalia and Italo with source coverage metadata.

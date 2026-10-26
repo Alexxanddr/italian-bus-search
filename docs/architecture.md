@@ -10,7 +10,7 @@ The application provides small read-only HTTP and MCP interfaces over incompatib
 |---|---|
 | `src/domain.ts` | Normalized data types and application errors |
 | `src/app.ts` | HTTP validation, routing, status selection, and rate limiting |
-| `src/mcp/` | MCP tools and stdio process entrypoint |
+| `src/mcp/` | Shared MCP tools and stdio process entrypoint |
 | `src/rail/` | Rail capability contracts, NeTEx schedule parsing/update, and aggregation |
 | `src/validation.ts` | Shared inbound search validation |
 | `src/rate-limit.ts` | Shared process-local limiter factory |
@@ -29,7 +29,7 @@ The application provides small read-only HTTP and MCP interfaces over incompatib
 ```mermaid
 flowchart LR
     HTTPClient[HTTP client] --> HTTP[Node HTTP adapter]
-    MCPHost[MCP host] --> MCP[stdio MCP adapter]
+    MCPHost[MCP host] --> MCP[stdio or Streamable HTTP MCP adapter]
     HTTP --> Validation[Shared validation]
     MCP --> Validation
     Validation --> Search[SearchService]
@@ -67,7 +67,7 @@ Changing a domain field affects the HTTP interface, every adapter, fixtures, and
 
 `src/mcp/server.ts` keeps the three bus tools over `SearchService` and registers four rail tools over `RailSearchService`, quote adapters, and live adapters. It owns MCP schemas, bounded result presentation, structured content, and safe tool errors. `createBusMcpServer({ providers, railProviders, railQuoteProviders, railLiveProviders })` is its test seam.
 
-`src/mcp/stdio.ts` only owns process transport and shutdown. It writes protocol traffic to stdout through the SDK and diagnostics to stderr. The complete interface is in [mcp.md](mcp.md).
+`src/mcp/stdio.ts` owns local process transport and shutdown. `src/app.ts` mounts the same server factory at `/mcp` using the SDK's stateless Streamable HTTP handler. The complete interface is in [mcp.md](mcp.md).
 
 ### Shared inbound modules
 
@@ -165,7 +165,7 @@ The automated suite is deterministic and offline. Live checks are separate, low-
 - The service supports one-way searches only.
 - Liveness does not imply provider readiness.
 - Rate limiting is suitable for a single local process, not a distributed public edge.
-- MCP is local stdio only; no remote MCP transport or authentication is implemented.
+- Streamable HTTP is cluster-internal and unauthenticated; no public MCP ingress is implemented.
 - Rail schedule, quote, and live capabilities are separate. Local NeTEx schedules, exact-match Trenitalia and Italo quotes, ViaggiaTreno live reads, and verified Italo live reads are enabled. Italo quote state is temporary and cleaned up best-effort; fare selection and purchase are separate and absent.
 - NeTEx refresh parses the large XML feeds as streams and atomically writes compact JSON gzip caches; runtime searches never parse XML.
 - Italo In Viaggio is enabled only for standalone train status and boards. Its train status is never joined to a dated schedule because the source cannot prove the service date.

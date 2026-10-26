@@ -91,7 +91,7 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
   const railLiveProviders = dependencies.railLiveProviders ?? [new TrenitaliaLiveProvider(), new ItaloLiveProvider()];
   const limiter = createRateLimiter();
   const consumeSearch = dependencies.consumeSearch ?? (() => limiter("mcp"));
-  const server = new McpServer({ name: "italian-bus-search", version: "0.2.4" });
+  const server = new McpServer({ name: "italian-bus-search", version: "0.3.0" });
 
   server.registerTool("list_providers", {
     title: "List Italian bus providers",

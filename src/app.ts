@@ -1,4 +1,8 @@
-import { createServer as createHttpServer } from "node:http";
+import { createServer as createHttpServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { once } from "node:events";
+import { Readable } from "node:stream";
+
+import { createMcpHandler } from "@modelcontextprotocol/server";
 
 import { AppError } from "./domain.ts";
 import { createDefaultProviders } from "./providers/default.ts";
@@ -11,6 +15,7 @@ import { ItaloLiveProvider } from "./rail/italo-live.ts";
 import type { RailLiveProvider, RailQuoteProvider, RailScheduleProvider } from "./rail/provider.ts";
 import { RailSearchService } from "./rail/search.ts";
 import { TrenitaliaLiveProvider } from "./rail/trenitalia-live.ts";
+import { createBusMcpServer } from "./mcp/server.ts";
 
 type Handler = (request: Request, clientId?: string) => Promise<Response>;
 
@@ -33,14 +38,50 @@ export function createApp(providers: readonly Provider[] = createDefaultProvider
 
 export function createServer() {
   const app = createApp();
-  return createHttpServer(async (request, response) => {
-    const result = await app(
-      new Request(new URL(request.url ?? "/", "http://localhost"), { method: request.method }),
-      request.socket.remoteAddress,
-    );
-    response.writeHead(result.status, Object.fromEntries(result.headers));
-    response.end(await result.text());
+  const mcp = createMcpApp();
+  const server = createHttpServer(async (request, response) => {
+    try {
+      const webRequest = await toWebRequest(request);
+      const result = new URL(webRequest.url).pathname === "/mcp"
+        ? await mcp.fetch(webRequest)
+        : await app(webRequest, request.socket.remoteAddress);
+      await sendWebResponse(response, result);
+    } catch (error) {
+      console.error(error);
+      response.writeHead(500).end("Internal server error");
+    }
   });
+  server.on("close", () => void mcp.close());
+  return server;
+}
+
+export function createMcpApp() {
+  return createMcpHandler(() => createBusMcpServer(), {
+    onerror: (error) => console.error(`MCP transport error: ${error.message}`),
+  });
+}
+
+function toWebRequest(request: IncomingMessage): Request {
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(request.headers)) {
+    if (value !== undefined) headers.set(name, Array.isArray(value) ? value.join(", ") : value);
+  }
+  const hasBody = request.method !== "GET" && request.method !== "HEAD";
+  return new Request(new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`), {
+    method: request.method,
+    headers,
+    body: hasBody ? Readable.toWeb(request) : undefined,
+    duplex: hasBody ? "half" : undefined,
+  } as RequestInit & { duplex?: "half" });
+}
+
+async function sendWebResponse(response: ServerResponse, result: Response): Promise<void> {
+  response.writeHead(result.status, Object.fromEntries(result.headers));
+  if (result.body === null) return void response.end();
+  for await (const chunk of result.body) {
+    if (!response.write(chunk)) await once(response, "drain");
+  }
+  response.end();
 }
 
 async function route(request: Request, service: SearchService, railService: RailSearchService, railLiveProviders: readonly RailLiveProvider[]): Promise<Response> {

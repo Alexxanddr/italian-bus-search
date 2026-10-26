@@ -16,7 +16,7 @@ The project hides provider-specific station catalogs, request formats, fare stru
 - One response model for locations and journeys across different booking platforms.
 - Live adapters for five operators.
 - Partial results when one provider fails and another succeeds.
-- A local stdio MCP server with backward-compatible bus tools and separate rail tools.
+- MCP over local stdio or stateless Streamable HTTP at `/mcp`, with backward-compatible bus tools and separate rail tools.
 - Scheduled Trenitalia and Italo searches from operator datasets installed by the deployer.
 - Official links for continuing a search manually on provider sites.
 - Structured, provider-scoped errors instead of leaked upstream responses.
@@ -85,6 +85,7 @@ curl 'http://127.0.0.1:3000/journeys?origin=Roma&destination=Milano&date=YYYY-MM
 | `GET` | `/train-journeys` | Scheduled direct and one-change rail journeys |
 | `GET` | `/train-status` | Standalone live status where enabled |
 | `GET` | `/station-board` | Live arrivals/departures where enabled |
+| `POST` | `/mcp` | Stateless MCP Streamable HTTP endpoint |
 
 `/locations` and `/journeys` accept an optional `provider` parameter. Without it, all providers are queried independently and successful data is preserved alongside provider-scoped errors.
 
@@ -125,6 +126,8 @@ The existing `list_providers`, `search_locations`, and `search_journeys` bus too
 }
 ```
 
+For a container or remote MCPHub deployment, start the HTTP process and point the client to `http://italian-bus-search:3000/mcp`. The container image is `ghcr.io/alexxanddr/italian-bus-search:latest`; populate the two timetable paths with `node dist/rail/update.js` before starting it.
+
 See [MCP interface](docs/mcp.md) for the authoritative tool contract, limits, errors, and development command.
 
 ## Architecture
@@ -155,7 +158,7 @@ The default server deliberately binds to loopback and keeps rate-limit and cache
 ## Project documentation
 
 - [HTTP interface](docs/api.md) — authoritative endpoint and error contract.
-- [MCP interface](docs/mcp.md) — authoritative tools, results, limits, and stdio contract.
+- [MCP interface](docs/mcp.md) — authoritative tools, results, limits, and transport contract.
 - [Architecture](docs/architecture.md) — modules, seams, flows, and design decisions.
 - [Adding a provider](docs/adding-provider.md) — research, implementation, and verification checklist.
 - [Operations](docs/operations.md) — configuration, deployment constraints, and failure handling.
