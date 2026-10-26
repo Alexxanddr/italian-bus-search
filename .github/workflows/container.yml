@@ -27,7 +27,7 @@ jobs:
       - uses: docker/metadata-action@v6
         id: meta
         with:
-          images: ghcr.io/alexxanddr/italian-bus-search
+          images: ghcr.io/alexxanddr/italian-travel-search
           tags: |
             type=raw,value=latest
             type=sha

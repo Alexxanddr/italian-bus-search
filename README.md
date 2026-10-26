@@ -2,7 +2,7 @@
 
 <!-- mcp-name: io.github.Alexxanddr/italian-bus-search -->
 
-[![CI](https://github.com/Alexxanddr/italian-bus-search/actions/workflows/ci.yml/badge.svg)](https://github.com/Alexxanddr/italian-bus-search/actions/workflows/ci.yml)
+[![CI](https://github.com/Alexxanddr/italian-travel-search/actions/workflows/ci.yml/badge.svg)](https://github.com/Alexxanddr/italian-travel-search/actions/workflows/ci.yml)
 
 An unofficial, read-only TypeScript service for Italian coach searches and local NeTEx rail timetables through HTTP and Model Context Protocol interfaces.
 
@@ -48,8 +48,8 @@ Rail schedule support uses compact local caches refreshed from Italian NAP NeTEx
 ## Quick start
 
 ```sh
-git clone https://github.com/Alexxanddr/italian-bus-search.git
-cd italian-bus-search
+git clone https://github.com/Alexxanddr/italian-travel-search.git
+cd italian-travel-search
 npm install
 cp .env.example .env
 npm start
@@ -126,7 +126,7 @@ The existing `list_providers`, `search_locations`, and `search_journeys` bus too
 }
 ```
 
-For a container or remote MCPHub deployment, start the HTTP process and point the client to `http://italian-bus-search:3000/mcp`. The container image is `ghcr.io/alexxanddr/italian-bus-search:latest`; populate the two timetable paths with `node dist/rail/update.js` before starting it.
+For a container or remote MCPHub deployment, start the HTTP process and point the client to `http://italian-bus-search:3000/mcp`. The container image is `ghcr.io/alexxanddr/italian-travel-search:latest`; populate the two timetable paths with `node dist/rail/update.js` before starting it.
 
 See [MCP interface](docs/mcp.md) for the authoritative tool contract, limits, errors, and development command.
 

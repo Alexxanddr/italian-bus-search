@@ -4,7 +4,7 @@
   "title": "Italian Bus and Rail Search MCP Server",
   "description": "Read-only Italian bus searches and local NeTEx rail schedules.",
   "repository": {
-    "url": "https://github.com/Alexxanddr/italian-bus-search",
+    "url": "https://github.com/Alexxanddr/italian-travel-search",
     "source": "github"
   },
   "version": "0.3.0",

@@ -4,7 +4,7 @@
 
 The package is published as `italian-bus-search`; npm user `alexxanddr0` owns it. Version `0.1.0` was the initial public release.
 
-The repository metadata points to `Alexxanddr/italian-bus-search`. Every new publication requires a unique version; npm versions cannot be overwritten.
+The repository metadata points to `Alexxanddr/italian-travel-search`. Every new publication requires a unique version; npm versions cannot be overwritten.
 
 ## Recommended distribution
 
@@ -32,7 +32,7 @@ Use Semantic Versioning and tags of the form `vX.Y.Z`. Until `1.0.0`, document a
 The repository includes `.github/workflows/publish.yml` using npm Trusted Publishing via GitHub Actions OIDC. Configure the package on npm under **Settings → Trusted Publisher → GitHub Actions**:
 
 - Organization or user: `Alexxanddr`
-- Repository: `italian-bus-search`
+- Repository: `italian-travel-search`
 - Workflow filename: `publish.yml`
 - Allowed action: `npm publish`
 

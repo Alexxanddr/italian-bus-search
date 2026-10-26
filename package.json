@@ -20,12 +20,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Alexxanddr/italian-bus-search.git"
+    "url": "git+https://github.com/Alexxanddr/italian-travel-search.git"
   },
   "bugs": {
-    "url": "https://github.com/Alexxanddr/italian-bus-search/issues"
+    "url": "https://github.com/Alexxanddr/italian-travel-search/issues"
   },
-  "homepage": "https://github.com/Alexxanddr/italian-bus-search#readme",
+  "homepage": "https://github.com/Alexxanddr/italian-travel-search#readme",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
