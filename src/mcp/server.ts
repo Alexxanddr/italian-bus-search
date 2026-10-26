@@ -91,11 +91,11 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
   const railLiveProviders = dependencies.railLiveProviders ?? [new TrenitaliaLiveProvider(), new ItaloLiveProvider()];
   const limiter = createRateLimiter();
   const consumeSearch = dependencies.consumeSearch ?? (() => limiter("mcp"));
-  const server = new McpServer({ name: "italian-bus-search", version: "0.2.0" });
+  const server = new McpServer({ name: "italian-bus-search", version: "0.2.1" });
 
   server.registerTool("list_providers", {
     title: "List Italian bus providers",
-    description: "List configured journey providers and their status without contacting provider systems.",
+    description: "BUS ONLY. List configured bus/coach providers and their status. Never use this tool for trains or rail; use list_train_providers instead.",
     outputSchema: z.object({
       providers: z.array(z.object({
         id: z.string(),
@@ -114,7 +114,7 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
 
   server.registerTool("list_train_providers", {
     title: "List Italian train providers",
-    description: "List configured train operators and whether schedule, price, live-status, and station-board capabilities are enabled, without contacting provider systems.",
+    description: "TRAINS ONLY. Use for requests involving trains or rail. Lists train operators and whether schedule, price, live-status, and station-board capabilities are enabled.",
     outputSchema: z.object({
       providers: z.array(z.object({
         id: z.enum(["trenitalia", "italo"]),
@@ -129,7 +129,7 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
 
   server.registerTool("search_locations", {
     title: "Search Italian bus locations",
-    description: "Find provider location IDs and exact names. For an aggregate search, reuse exact names shared across providers; IDs are provider-specific and should only be used with the provider field set.",
+    description: "BUS ONLY. Find bus/coach location IDs and exact names. Never use for train stations; use search_train_locations instead. For an aggregate bus search, reuse exact names shared across providers.",
     inputSchema: z.object({
       query: z.string().describe("Partial city, stop, or location name"),
       provider: z.string().optional().describe("Provider ID; omit to search every provider"),
@@ -164,7 +164,7 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
 
   server.registerTool("search_journeys", {
     title: "Search Italian bus journeys",
-    description: "Search one-way journeys. When provider is omitted, use exact location names shared across providers; use provider-specific IDs only together with provider. Results include official links for continuing manually on provider sites.",
+    description: "BUS ONLY. Search one-way bus/coach journeys. Never use for trains or rail; use search_train_journeys instead. Results include official links for continuing manually on provider sites.",
     inputSchema: z.object({
       origin: z.string().describe("Exact shared location name for aggregate searches, or a provider-specific ID when provider is set"),
       destination: z.string().describe("Exact shared location name for aggregate searches, or a provider-specific ID when provider is set"),
@@ -200,7 +200,7 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
 
   server.registerTool("search_train_locations", {
     title: "Search Italian train stations",
-    description: "Find operator-aware stations. Prefer names across operators; station IDs are operator-specific.",
+    description: "TRAINS ONLY. Use for every request involving trains or rail to find operator-aware stations. Prefer names across operators; station IDs are operator-specific.",
     inputSchema: z.object({ query: z.string(), provider: z.enum(["trenitalia", "italo"]).optional(), limit: z.number().int().min(1).max(maximumResultLimit).default(defaultResultLimit) }),
     outputSchema: z.object({ locations: z.array(locationSchema), errors: z.array(providerErrorSchema), total: z.number().int().nonnegative(), truncated: z.boolean() }), annotations,
   }, async ({ query, provider, limit }) => {
@@ -215,7 +215,7 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
 
   server.registerTool("search_train_journeys", {
     title: "Search Italian train journeys",
-    description: "Search scheduled trains. Price and live status may be unavailable independently; use only each result's bookingUrl for purchase continuation. Preserves total, truncation, source metadata, and provider errors.",
+    description: "TRAINS ONLY. Use for every request involving trains or rail. Requires origin, destination, and date; returns scheduled Trenitalia and Italo trains with prices when available and official bookingUrl links.",
     inputSchema: z.object({ origin: z.string(), destination: z.string(), date: z.string(), adults: z.number().int().min(1).max(9).default(1), children: z.number().int().min(0).max(9).default(0), provider: z.enum(["trenitalia", "italo"]).optional(), limit: z.number().int().min(1).max(maximumResultLimit).default(defaultResultLimit) }),
     outputSchema: z.object({ journeys: z.array(railJourneySchema), errors: z.array(providerErrorSchema), total: z.number().int().nonnegative(), truncated: z.boolean() }), annotations,
   }, async ({ origin, destination, date, adults, children, provider, limit }) => {

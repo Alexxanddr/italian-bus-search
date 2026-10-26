@@ -64,6 +64,8 @@ test("discovers all read-only MCP tools and lists bus providers without network 
   const tools = await client.listTools();
   assert.deepEqual(tools.tools.map(({ name }) => name), ["list_providers", "list_train_providers", "search_locations", "search_journeys", "search_train_locations", "search_train_journeys", "get_train_status", "get_station_board"]);
   assert.ok(tools.tools.every(({ annotations }) => annotations?.readOnlyHint === true && annotations.destructiveHint === false));
+  assert.match(tools.tools.find(({ name }) => name === "search_journeys")?.description ?? "", /BUS ONLY.*Never use for trains/);
+  assert.match(tools.tools.find(({ name }) => name === "search_train_journeys")?.description ?? "", /TRAINS ONLY.*Requires origin, destination, and date/);
 
   const result = await client.callTool({ name: "list_providers", arguments: {} });
   assert.equal(result.isError, undefined);
