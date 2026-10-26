@@ -166,7 +166,7 @@ The automated suite is deterministic and offline. Live checks are separate, low-
 - Liveness does not imply provider readiness.
 - Rate limiting is suitable for a single local process, not a distributed public edge.
 - Streamable HTTP is cluster-internal and unauthenticated; no public MCP ingress is implemented.
-- Rail schedule, quote, and live capabilities are separate. Local NeTEx schedules, exact-match Trenitalia and Italo quotes, ViaggiaTreno live reads, and verified Italo live reads are enabled. Italo quote state is temporary and cleaned up best-effort; fare selection and purchase are separate and absent.
+- Rail schedule, quote, and live capabilities are separate. A successful Trenitalia or Italo booking search is authoritative for the returned journey set: exact NeTEx matches retain NAP provenance and additional live solutions are normalized from their reported legs. NeTEx schedules remain the fallback when quoting fails. ViaggiaTreno and verified Italo live reads are independent; Italo quote state is temporary and cleaned up best-effort.
 - NeTEx refresh parses the large XML feeds as streams and atomically writes compact JSON gzip caches; runtime searches never parse XML.
 - Italo In Viaggio is enabled only for standalone train status and boards. Its train status is never joined to a dated schedule because the source cannot prove the service date.
 - Rail routes are direct services from one timetable dataset. Cross-operator routing is not implemented.

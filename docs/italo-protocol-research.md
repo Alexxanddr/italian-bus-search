@@ -68,7 +68,7 @@ The verified runtime sequence is:
 5. Read `trips[].travelSolutions[].journeys[].segments[]`: train number and datetimes identify the service; `fares[].availableCount` and the sum of `paxFares[].fullPaxDiscountPrice` determine the cheapest currently available fare.
 6. Delete `/api/v1/booking/{bookingId}` and the working session best-effort. Cleanup failure never changes the returned price but remains an upstream operational risk.
 
-The live Roma Termini–Milano Centrale verification for 10 November 2026 returned 33 planning solutions. Train 9904 at 05:40–09:20 exposed EUR 34.90; the application matched 29 of 32 NeTEx journeys to a currently priced solution and preserved the other three with `price: null`.
+The live Roma Termini–Milano Centrale verification for 10 November 2026 returned 33 planning solutions. Train 9904 at 05:40–09:20 exposed EUR 34.90. The booking result is now authoritative when successful: 29 solutions matched NeTEx exactly and four additional live solutions were normalized from their Italo segment data, yielding 33 priced results and no theoretical unquoted combinations.
 
 The same browser flow was repeated with one adult and one child. Its request added `childPassengers: 1`, retained `passengersAges: null`, and included the otherwise empty `promocodeAlias`. The adapter now sends that exact passenger shape, retries transient polling 5xx responses within a bounded 20-second client window, and always awaits best-effort session cleanup. A live adapter retest returned 33 priced quotes; the first total was EUR 44.95 with fare `Italo Famiglia Bambini GRATIS`.
 

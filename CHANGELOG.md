@@ -7,6 +7,8 @@ All notable changes will be documented here. Releases follow Semantic Versioning
 - Added stateless MCP Streamable HTTP at `/mcp` while preserving stdio.
 - Added a non-root OCI image and automated GHCR publishing.
 - Documented container initialization of the authorized NAP timetable caches.
+- Made successful Trenitalia and Italo booking searches authoritative, preserving live multi-change solutions and removing theoretical unquoted combinations.
+- Split the HTTP contract into detailed bus and train guides with examples and upstream protocol inventories.
 
 ## 0.2.0 - 2026-10-25
 

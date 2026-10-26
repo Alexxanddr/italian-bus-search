@@ -8,13 +8,15 @@ const input = { origin: "Roma Termini", destination: "Milano Centrale", date: "2
 test("normalizes saleability and prices from a synthetic lefrecce quote", async () => {
   const fetcher: typeof fetch = async (request) => String(request).includes("locations/search")
     ? Response.json([{ id: String(request).includes("Roma") ? 1 : 2, name: String(request).includes("Roma") ? "Roma Termini" : "Milano Centrale" }])
-    : Response.json({ solutions: [{ solution: { id: "synthetic-1", departureTime: "2026-11-10T08:10:00+01:00", arrivalTime: "2026-11-10T11:50:00+01:00", status: "SALEABLE", price: { amount: 44.9, currency: "€", hideAmount: false }, trains: [{ name: "9516" }] } }, { solution: { id: "synthetic-2", departureTime: "2026-11-10T09:00:00+01:00", arrivalTime: "2026-11-10T13:00:00+01:00", status: "NOT_SALEABLE", trains: [{ description: "9999" }] } }] });
+    : Response.json({ solutions: [{ solution: { id: "synthetic-1", departureTime: "2026-11-10T08:10:00+01:00", arrivalTime: "2026-11-10T11:50:00+01:00", status: "SALEABLE", price: { amount: 44.9, currency: "€", hideAmount: false }, trains: [{ name: "9516" }], nodes: [{ origin: "Roma Termini", bdoOrigin: "S08409", destination: "Milano Centrale", departureTime: "2026-11-10T08:10:00+01:00", arrivalTime: "2026-11-10T11:50:00+01:00", train: { name: "9516" } }] } }, { solution: { id: "synthetic-2", departureTime: "2026-11-10T09:00:00+01:00", arrivalTime: "2026-11-10T13:00:00+01:00", status: "NOT_SALEABLE", trains: [{ acronym: "UB" }], nodes: [{ origin: "Roma Termini", destination: "Milano Centrale", departureTime: "2026-11-10T09:00:00+01:00", arrivalTime: "2026-11-10T13:00:00+01:00", train: { acronym: "UB" } }] } }] });
   const quotes = await new TrenitaliaQuoteProvider(fetcher).searchQuotes(input);
   assert.deepEqual(quotes[0]?.trainNumbers, ["9516"]);
   assert.equal(quotes[0]?.price?.amount, 44.9);
   assert.equal(quotes[0]?.price?.currency, "EUR");
+  assert.equal(quotes[0]?.legs?.[0]?.origin.id, "S08409");
   assert.equal(quotes[1]?.available, false);
   assert.equal(quotes[1]?.price, null);
+  assert.deepEqual(quotes[1]?.trainNumbers, ["UB"]);
 });
 
 test("fails safely on quote rate limits and ambiguous locations", async () => {

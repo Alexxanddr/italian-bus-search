@@ -2,7 +2,7 @@
 
 Research date: 24 October 2026.
 
-## Rail evidence — 25 October 2026
+## Rail evidence — 26 October 2026
 
 - The official Italian NAP catalog lists Trenitalia NeTEx Level 1 and Italo NeTEx Level 1/2 datasets containing stops, calendars, routes, services, and timetables.
 - The verified public `checkedResource` downloads are Asset 1080596 for Trenitalia and Asset 1814124 for Italo. The updater fixes these URLs in source and accepts redirects only within the official CCISS host. The data remain local because public download does not establish redistribution rights.
@@ -10,7 +10,13 @@ Research date: 24 October 2026.
 - Synthetic fixtures model only the NeTEx fields consumed by the native TypeScript parser. They contain invented IDs and no captured carrier response, credential, cookie, or personal data.
 - Official homepages are used only as manual booking fallbacks; no unverified pre-filled deep link is emitted.
 
-Rail capability classification: schedules are local official-dataset observations with publication/validity metadata; Trenitalia and Italo prices are volatile observations joined only by exact train/times; Italo live observations are standalone and date-unverified. Public website availability and the repository owner's instruction are not represented as carrier authorization or redistribution rights.
+Rail capability classification: schedules are local official-dataset observations with publication/validity metadata; a successful Trenitalia or Italo booking response is authoritative for current journey availability and passenger-total prices. Exact train/time matches enrich NeTEx results, while additional booking solutions are normalized from their reported legs; if quoting fails, the NeTEx result survives with `price: null` and an explicit error. Italo live observations are standalone and date-unverified. Public website availability and the repository owner's instruction are not represented as carrier authorization or redistribution rights.
+
+Live regression verification on 26 October 2026 returned 24 Trenitalia booking
+solutions for Roma Termini–Cosenza on 30 October 2026, all 24 with prices and
+up to four changes. Italo returned 33 Roma Termini–Milano Centrale solutions
+for 10 November 2026, all 33 with prices. These observations are examples, not
+availability guarantees.
 
 This document separates observed evidence from inference. No login, purchase, payment, CAPTCHA bypass, credential, or high-volume request was used.
 

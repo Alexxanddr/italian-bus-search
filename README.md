@@ -82,14 +82,14 @@ curl 'http://127.0.0.1:3000/journeys?origin=Roma&destination=Milano&date=YYYY-MM
 | `GET` | `/locations` | Provider location search |
 | `GET` | `/journeys` | Normalized one-way journey search |
 | `GET` | `/train-locations` | Trenitalia/Italo station search |
-| `GET` | `/train-journeys` | Scheduled direct and one-change rail journeys |
+| `GET` | `/train-journeys` | Live-priced rail journeys with resilient NeTEx fallback |
 | `GET` | `/train-status` | Standalone live status where enabled |
 | `GET` | `/station-board` | Live arrivals/departures where enabled |
 | `POST` | `/mcp` | Stateless MCP Streamable HTTP endpoint |
 
 `/locations` and `/journeys` accept an optional `provider` parameter. Without it, all providers are queried independently and successful data is preserved alongside provider-scoped errors.
 
-The complete parameter, response, status, and error contract is in [HTTP interface](docs/api.md).
+The complete contract is split into the [Bus API](docs/api-bus.md) and [Train API](docs/api-trains.md), with shared behavior indexed in [HTTP API](docs/api.md).
 
 ## MCP server
 
@@ -157,7 +157,9 @@ The default server deliberately binds to loopback and keeps rate-limit and cache
 
 ## Project documentation
 
-- [HTTP interface](docs/api.md) — authoritative endpoint and error contract.
+- [HTTP API](docs/api.md) — shared behavior and error contract.
+- [Bus API](docs/api-bus.md) — bus providers, locations, journeys, and examples.
+- [Train API](docs/api-trains.md) — rail schedules, live prices/status, provenance, and examples.
 - [MCP interface](docs/mcp.md) — authoritative tools, results, limits, and transport contract.
 - [Architecture](docs/architecture.md) — modules, seams, flows, and design decisions.
 - [Adding a provider](docs/adding-provider.md) — research, implementation, and verification checklist.

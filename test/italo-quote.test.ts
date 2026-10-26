@@ -21,6 +21,7 @@ test("normalizes an anonymous synthetic Italo booking quote and cleans up its se
   assert.equal(quote?.price?.amount, 44.8);
   assert.equal(quote?.price?.fareName, "Economy");
   assert.equal(quote?.price?.travelClass, "Smart");
+  assert.deepEqual(quote?.legs?.map(({ trainNumber }) => trainNumber), ["9904"]);
   assert.equal(quote?.departure, "2026-11-10T05:40:00+01:00");
   assert.equal(quote?.available, true);
   assert.equal(bookingBody?.childPassengers, 1);

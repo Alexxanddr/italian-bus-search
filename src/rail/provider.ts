@@ -1,4 +1,4 @@
-import type { Location, RailJourney, RailSearchInput, RailLiveStatus, RailPrice, StationBoard } from "../domain.ts";
+import type { Location, RailJourney, RailSearchInput, RailLiveStatus, RailPrice, RailLeg, StationBoard } from "../domain.ts";
 
 export type RailOperator = "trenitalia" | "italo";
 
@@ -14,6 +14,9 @@ export type RailQuote = {
   arrival: string;
   available: boolean;
   price: RailPrice | null;
+  observedAt: string;
+  source: string;
+  legs?: RailLeg[];
 };
 
 export interface RailQuoteProvider {

@@ -45,7 +45,7 @@ test("returns provider-scoped partial results", async () => {
 test("enriches exact timetable identities and preserves schedules when quote fails", async () => {
   const schedule = await provider("trenitalia");
   let quotedInput = input;
-  const quote: RailQuoteProvider = { id: "trenitalia", searchQuotes: async (value) => { quotedInput = value; return [{ trainNumbers: ["FR 1000"], departure: "2027-01-15T08:00:00+01:00", arrival: "2027-01-15T11:10:00+01:00", available: true, price: { amount: 44.9, currency: "EUR", observedAt: "2026-10-25T10:00:00Z", source: "synthetic" } }]; } };
+  const quote: RailQuoteProvider = { id: "trenitalia", searchQuotes: async (value) => { quotedInput = value; return [{ trainNumbers: ["FR 1000"], departure: "2027-01-15T08:00:00+01:00", arrival: "2027-01-15T11:10:00+01:00", available: true, price: { amount: 44.9, currency: "EUR", observedAt: "2026-10-25T10:00:00Z", source: "synthetic" }, observedAt: "2026-10-25T10:00:00Z", source: "synthetic" }]; } };
   const enriched = await new RailSearchService([schedule], [quote]).searchJourneys({ ...input, origin: "trenitalia-ROM", destination: "trenitalia-MIL" });
   assert.equal(enriched.journeys[0]?.price?.amount, 44.9);
   assert.equal(quotedInput.origin, "Roma Termini");
@@ -54,6 +54,25 @@ test("enriches exact timetable identities and preserves schedules when quote fai
   assert.equal(partial.journeys.length, 1);
   assert.equal(partial.journeys[0]?.price, null);
   assert.equal(partial.errors[0]?.code, "QUOTE_UNAVAILABLE");
+});
+
+test("uses successful booking results as the authoritative priced journey set", async () => {
+  const schedule = await provider("trenitalia");
+  const observedAt = "2026-10-25T10:00:00Z";
+  const quote: RailQuoteProvider = { id: "trenitalia", searchQuotes: async () => [{
+    trainNumbers: ["FR 2000", "R 3000"], departure: "2027-01-15T09:00:00+01:00", arrival: "2027-01-15T13:00:00+01:00", available: true,
+    price: { amount: 39.9, currency: "EUR", observedAt, source: "synthetic" }, observedAt, source: "synthetic booking search",
+    legs: [
+      { trainNumber: "FR 2000", origin: { id: "ROM", name: "Roma Termini" }, destination: { id: "BOL", name: "Bologna Centrale" }, departure: "2027-01-15T09:00:00+01:00", arrival: "2027-01-15T11:00:00+01:00" },
+      { trainNumber: "R 3000", origin: { id: "BOL", name: "Bologna Centrale" }, destination: { id: "MIL", name: "Milano Centrale" }, departure: "2027-01-15T11:20:00+01:00", arrival: "2027-01-15T13:00:00+01:00" },
+    ],
+  }] };
+  const result = await new RailSearchService([schedule], [quote]).searchJourneys(input);
+  assert.equal(result.journeys.length, 1);
+  assert.equal(result.journeys[0]?.price?.amount, 39.9);
+  assert.equal(result.journeys[0]?.changes, 1);
+  assert.deepEqual(result.journeys[0]?.legs.map(({ trainNumber }) => trainNumber), ["FR 2000", "R 3000"]);
+  assert.equal(result.journeys[0]?.timetableSource.source, "synthetic booking search");
 });
 
 test("uses Europe/Rome daylight-saving offsets", async () => {

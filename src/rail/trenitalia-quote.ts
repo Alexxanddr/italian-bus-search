@@ -13,7 +13,7 @@ export class TrenitaliaQuoteProvider implements RailQuoteProvider {
     const key = JSON.stringify(input), cached = this.#cache.get(key);
     if (cached !== undefined && cached.expires > Date.now()) return cached.value;
     const [origin, destination] = await Promise.all([this.location(input.origin), this.location(input.destination)]);
-    const quotes: RailQuote[] = [], seen = new Set<string>();
+    const quotes: RailQuote[] = [], seen = new Set<string>(), observedAt = new Date().toISOString();
     for (let offset = 0; offset < 100; offset += 10) {
       const data = object(await this.request("/ticket/solutions", {
         departureLocationId: origin, arrivalLocationId: destination, departureTime: `${input.date}T00:00:00.000`, adults: input.adults, children: input.children,
@@ -26,12 +26,23 @@ export class TrenitaliaQuoteProvider implements RailQuoteProvider {
         if (seen.has(id)) continue;
         seen.add(id);
         const status = optionalString(solution.status), price = optionalObject(solution.price), amount = optionalNumber(price.amount), currency = normalizeCurrency(optionalString(price.currency));
+        const nodes = array(solution.nodes).map(object);
+        const trainNumbers = nodes.map((node) => trainNumber(object(node.train)));
         quotes.push({
-          trainNumbers: array(solution.trains).map((train) => optionalString(object(train).name) ?? optionalString(object(train).description)).filter((value): value is string => value !== undefined),
+          trainNumbers,
           departure: requiredString(solution.departureTime), arrival: requiredString(solution.arrivalTime), available: status === "SALEABLE",
           price: status === "SALEABLE" && amount !== undefined && currency !== undefined && price.hideAmount !== true
-            ? { amount, currency, observedAt: new Date().toISOString(), source: "Trenitalia lefrecce quote" }
+            ? { amount, currency, observedAt, source: "Trenitalia lefrecce quote" }
             : null,
+          observedAt,
+          source: "Trenitalia lefrecce booking search",
+          legs: nodes.map((node, index) => ({
+            trainNumber: trainNumber(object(node.train)),
+            origin: { id: optionalString(node.bdoOrigin) ?? requiredString(node.origin), name: requiredString(node.origin) },
+            destination: { id: optionalString(nodes[index + 1]?.bdoOrigin) ?? requiredString(node.destination), name: requiredString(node.destination) },
+            departure: requiredString(node.departureTime),
+            arrival: requiredString(node.arrivalTime),
+          })),
         });
       }
       if (solutions.length < 10) break;
@@ -67,3 +78,4 @@ function optionalString(value: unknown) { return typeof value === "string" || ty
 function requiredString(value: unknown) { const result = optionalString(value); if (result === undefined) throw new AppError("INCOMPATIBLE_RESPONSE", "Missing Trenitalia quote time", 502); return result; }
 function optionalNumber(value: unknown) { if (value === undefined || value === null || value === "") return undefined; const result = Number(value); if (!Number.isFinite(result)) throw new AppError("INCOMPATIBLE_RESPONSE", "Invalid Trenitalia quote price", 502); return result; }
 function normalizeCurrency(value: string | undefined) { return value === "€" ? "EUR" : value; }
+function trainNumber(train: Record<string, unknown>) { return optionalString(train.name) ?? optionalString(train.description) ?? optionalString(train.acronym) ?? "UNKNOWN"; }

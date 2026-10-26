@@ -38,7 +38,7 @@ export class RailSearchService {
           try {
             const quoteInput = journeys[0] === undefined ? input : { ...input, origin: journeys[0].origin.name, destination: journeys[0].destination.name };
             const quotes = await quoteProvider.searchQuotes(quoteInput);
-            journeys = journeys.map((journey) => enrich(journey, quotes));
+            journeys = merge(journeys, quotes, provider.id, input.date);
           }
           catch (error) { quoteErrors.push(providerError(provider.id, error, "QUOTE_UNAVAILABLE")); }
         }
@@ -68,7 +68,31 @@ function providerError(provider: string, error: unknown, fallback: ProviderError
     : { provider, code: fallback, message: fallback === "QUOTE_UNAVAILABLE" ? "Rail quote request failed" : "Rail provider request failed" };
 }
 
-function enrich(journey: RailJourney, quotes: RailQuote[]): RailJourney {
-  const quote = quotes.find((candidate) => Date.parse(candidate.departure) === Date.parse(journey.departure) && Date.parse(candidate.arrival) === Date.parse(journey.arrival) && candidate.trainNumbers.length === journey.legs.length && candidate.trainNumbers.every((number, index) => number === journey.legs[index]?.trainNumber));
-  return quote === undefined ? journey : { ...journey, available: quote.available, price: quote.price };
+function merge(journeys: RailJourney[], quotes: RailQuote[], provider: RailJourney["provider"], date: string): RailJourney[] {
+  if (quotes.length === 0) return journeys;
+  return quotes.flatMap((quote, index) => {
+    const matched = journeys.find((journey) => exactMatch(journey, quote));
+    if (matched !== undefined) return [{ ...matched, available: quote.available, price: quote.price }];
+    if (quote.legs?.length === 0 || quote.legs === undefined) return [];
+    const first = quote.legs[0]!, last = quote.legs.at(-1)!;
+    return [{
+      provider,
+      journeyId: `${provider}:quote:${date}:${index}`,
+      origin: first.origin,
+      destination: last.destination,
+      departure: quote.departure,
+      arrival: quote.arrival,
+      durationMinutes: Math.round((Date.parse(quote.arrival) - Date.parse(quote.departure)) / 60_000),
+      changes: quote.legs.length - 1,
+      legs: quote.legs,
+      available: quote.available,
+      price: quote.price,
+      bookingUrl: provider === "trenitalia" ? "https://www.lefrecce.it/Channels.Website.WEB/" : "https://biglietti.italotreno.com/it/booking/ricerca",
+      timetableSource: { source: quote.source, publishedAt: quote.observedAt, validFrom: date, validThrough: date },
+    }];
+  });
+}
+
+function exactMatch(journey: RailJourney, quote: RailQuote): boolean {
+  return Date.parse(quote.departure) === Date.parse(journey.departure) && Date.parse(quote.arrival) === Date.parse(journey.arrival) && quote.trainNumbers.length === journey.legs.length && quote.trainNumbers.every((number, index) => number === journey.legs[index]?.trainNumber);
 }
