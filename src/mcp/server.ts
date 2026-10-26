@@ -91,7 +91,7 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
   const railLiveProviders = dependencies.railLiveProviders ?? [new TrenitaliaLiveProvider(), new ItaloLiveProvider()];
   const limiter = createRateLimiter();
   const consumeSearch = dependencies.consumeSearch ?? (() => limiter("mcp"));
-  const server = new McpServer({ name: "italian-bus-search", version: "0.2.2" });
+  const server = new McpServer({ name: "italian-bus-search", version: "0.2.3" });
 
   server.registerTool("list_providers", {
     title: "List Italian bus providers",
@@ -215,8 +215,8 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
 
   server.registerTool("search_train_journeys", {
     title: "Search Italian train journeys",
-    description: "TRAINS ONLY. Use for every request involving trains or rail. Requires origin, destination, and date; returns scheduled Trenitalia and Italo trains with prices when available and official bookingUrl links.",
-    inputSchema: z.object({ origin: z.string(), destination: z.string(), date: z.string(), adults: z.number().int().min(1).max(9).default(1), children: z.number().int().min(0).max(9).default(0), provider: z.enum(["trenitalia", "italo"]).optional(), limit: z.number().int().min(1).max(maximumResultLimit).default(defaultResultLimit) }),
+    description: "TRAINS ONLY. Requires origin, destination, and date. When the user states passenger counts, always pass adults and children explicitly. Each price is the total for those passengers; never infer discounts or convert it to a per-person price.",
+    inputSchema: z.object({ origin: z.string(), destination: z.string(), date: z.string(), adults: z.number().int().min(1).max(9).default(1).describe("Number of adult passengers; pass explicitly when stated by the user"), children: z.number().int().min(0).max(9).default(0).describe("Number of child passengers; pass explicitly when stated by the user, including zero"), provider: z.enum(["trenitalia", "italo"]).optional(), limit: z.number().int().min(1).max(maximumResultLimit).default(defaultResultLimit) }),
     outputSchema: z.object({ journeys: z.array(railJourneySchema), errors: z.array(providerErrorSchema), total: z.number().int().nonnegative(), truncated: z.boolean() }), annotations,
   }, async ({ origin, destination, date, adults, children, provider, limit }) => {
     try {
