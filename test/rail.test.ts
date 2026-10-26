@@ -68,6 +68,17 @@ test("accepts operator-localized station names through their shared name", async
   assert.equal((await (await NetexScheduleProvider.fromFile(path, "italo")).searchJourneys(input)).length, 1);
 });
 
+test("builds one-change journeys when no direct train serves the destination", async () => {
+  const path = `/tmp/trenitalia-change-${process.pid}.json.gz`;
+  const cache: TimetableCache = { operator: "trenitalia", source, stops: [{ id: "ROM", name: "Roma Termini" }, { id: "PAO", name: "Paola" }, { id: "COS", name: "Cosenza" }], services: [{ id: "fast", trainNumber: "FR 1", dates: [input.date], stops: [{ ref: "ROM", departure: 28_800, boarding: true, alighting: false }, { ref: "PAO", arrival: 39_600, boarding: false, alighting: true }] }, { id: "regional", trainNumber: "R 2", dates: [input.date], stops: [{ ref: "PAO", departure: 40_200, boarding: true, alighting: false }, { ref: "COS", arrival: 42_000, boarding: false, alighting: true }] }] };
+  await writeFile(path, gzipSync(JSON.stringify(cache)));
+  const journeys = await (await NetexScheduleProvider.fromFile(path, "trenitalia")).searchJourneys({ ...input, origin: "Roma Termini", destination: "Cosenza" });
+  assert.equal(journeys.length, 1);
+  assert.equal(journeys[0]?.changes, 1);
+  assert.deepEqual(journeys[0]?.legs.map(({ trainNumber }) => trainNumber), ["FR 1", "R 2"]);
+  assert.equal(journeys[0]?.legs[0]?.destination.name, "Paola");
+});
+
 test("stream parser rejects non-NeTEx input", async () => {
   await assert.rejects(parseNetexStream(Readable.from("<bad/>"), "italo"), (error: unknown) => error instanceof AppError && error.code === "INCOMPATIBLE_RESPONSE");
 });

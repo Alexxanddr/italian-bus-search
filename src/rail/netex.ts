@@ -24,7 +24,7 @@ export class NetexScheduleProvider implements RailScheduleProvider {
   async searchJourneys(input: RailSearchInput): Promise<RailJourney[]> {
     if (input.date < this.#dataset.source.validFrom || input.date > this.#dataset.source.validThrough) throw new AppError("COVERAGE_UNAVAILABLE", `${this.id} timetable does not cover ${input.date}`, 503);
     const origin = resolveStop(this.#dataset, input.origin), destination = resolveStop(this.#dataset, input.destination);
-    return this.#dataset.services.flatMap((service) => {
+    const direct = this.#dataset.services.flatMap((service) => {
       if (!service.dates.includes(input.date)) return [];
       const from = service.stops.findIndex(({ ref, boarding }) => ref === origin.id && boarding);
       const to = service.stops.findIndex(({ ref, alighting }, index) => index > from && ref === destination.id && alighting);
@@ -32,7 +32,47 @@ export class NetexScheduleProvider implements RailScheduleProvider {
       if (from < 0 || to < 0 || departure === undefined || arrival === undefined) return [];
       const departureIso = localDateTime(input.date, departure), arrivalIso = localDateTime(input.date, arrival);
       return [{ provider: this.id, journeyId: `${this.id}:${service.id}:${input.date}:${origin.id}:${destination.id}`, origin, destination, departure: departureIso, arrival: arrivalIso, durationMinutes: Math.round((Date.parse(arrivalIso) - Date.parse(departureIso)) / 60_000), changes: 0, legs: [{ trainNumber: service.trainNumber, origin, destination, departure: departureIso, arrival: arrivalIso }], available: null, price: null, bookingUrl: this.id === "trenitalia" ? "https://www.lefrecce.it/Channels.Website.WEB/" : "https://biglietti.italotreno.com/it/booking/ricerca", timetableSource: this.#dataset.source } satisfies RailJourney];
-    }).sort((left, right) => Date.parse(left.departure) - Date.parse(right.departure));
+    });
+    return [...direct, ...this.oneChangeJourneys(input, origin, destination)].sort((left, right) => Date.parse(left.departure) - Date.parse(right.departure));
+  }
+
+  private oneChangeJourneys(input: RailSearchInput, origin: TimetableCache["stops"][number], destination: TimetableCache["stops"][number]): RailJourney[] {
+    const active = this.#dataset.services.filter(({ dates }) => dates.includes(input.date));
+    const stopById = new Map(this.#dataset.stops.map((stop) => [stop.id, stop]));
+    const onward = new Map<string, Array<{ service: typeof active[number]; from: number; to: number; departure: number; arrival: number }>>();
+    for (const service of active) {
+      const to = service.stops.findIndex(({ ref, alighting }) => ref === destination.id && alighting);
+      if (to < 0) continue;
+      for (let from = 0; from < to; from += 1) {
+        const stop = service.stops[from];
+        if (stop?.boarding && stop.departure !== undefined) {
+          const candidates = onward.get(stop.ref) ?? [];
+          candidates.push({ service, from, to, departure: stop.departure, arrival: service.stops[to]!.arrival! });
+          onward.set(stop.ref, candidates);
+        }
+      }
+    }
+    const journeys = new Map<string, { wait: number; journey: RailJourney }>();
+    for (const service of active) {
+      const from = service.stops.findIndex(({ ref, boarding }) => ref === origin.id && boarding);
+      if (from < 0) continue;
+      for (let to = from + 1; to < service.stops.length; to += 1) {
+        const transferPoint = service.stops[to];
+        if (!transferPoint?.alighting || transferPoint.arrival === undefined || transferPoint.ref === destination.id) continue;
+        for (const second of onward.get(transferPoint.ref) ?? []) {
+          const wait = second.departure - transferPoint.arrival;
+          if (second.service.id === service.id || wait < 300 || wait > 21_600) continue;
+          const departure = service.stops[from]?.departure;
+          const transfer = stopById.get(transferPoint.ref);
+          if (departure === undefined || transfer === undefined) continue;
+          const departureIso = localDateTime(input.date, departure), transferArrival = localDateTime(input.date, transferPoint.arrival), transferDeparture = localDateTime(input.date, second.departure), arrivalIso = localDateTime(input.date, second.arrival);
+          const key = `${service.id}:${second.service.id}`;
+          const journey: RailJourney = { provider: this.id, journeyId: `${this.id}:${key}:${input.date}:${origin.id}:${destination.id}`, origin, destination, departure: departureIso, arrival: arrivalIso, durationMinutes: Math.round((Date.parse(arrivalIso) - Date.parse(departureIso)) / 60_000), changes: 1, legs: [{ trainNumber: service.trainNumber, origin, destination: transfer, departure: departureIso, arrival: transferArrival }, { trainNumber: second.service.trainNumber, origin: transfer, destination, departure: transferDeparture, arrival: arrivalIso }], available: null, price: null, bookingUrl: this.id === "trenitalia" ? "https://www.lefrecce.it/Channels.Website.WEB/" : "https://biglietti.italotreno.com/it/booking/ricerca", timetableSource: this.#dataset.source };
+          if ((journeys.get(key)?.wait ?? Infinity) > wait) journeys.set(key, { wait, journey });
+        }
+      }
+    }
+    return [...journeys.values()].map(({ journey }) => journey);
   }
 }
 

@@ -55,7 +55,7 @@ Salemi, Federico, and MarinoBus links open a public search route with origin, de
 
 - `list_train_providers` lists operators and configured schedule, price, live-status, and station-board capabilities without contacting upstream systems.
 - `search_train_locations` resolves Trenitalia/Italo stations. Names are preferred across operators; IDs are provider-specific. It returns `locations`, provider errors, `total`, and `truncated`.
-- `search_train_journeys` accepts the same date/passenger/limit fields as the bus journey tool and returns departure/arrival times, availability, prices, official search links, `total`, `truncated`, and provider errors. Each result carries `timetableSource`; exact Trenitalia and Italo matches can carry a short-lived price observation. Use only `bookingUrl` for manual purchase continuation.
+- `search_train_journeys` accepts date/passenger fields plus `offset` and `limit`, and returns direct and one-change journeys with departure/arrival times, availability, prices, official search links, `total`, `truncated`, and provider errors. When every result is requested, advance `offset` by `limit` until `truncated` is false. Each result carries `timetableSource`; exact Trenitalia and Italo matches can carry a short-lived price observation. Use only `bookingUrl` for manual purchase continuation.
 - `get_train_status` requires `provider`, `trainNumber`, `serviceDate`, and `origin`. For Trenitalia, `origin` is the train's service origin name or ViaggiaTreno `S...` code. Italo responses remain standalone with `freshness: date_unverified`.
 - `get_station_board` requires `provider`, `stationId`, `stationName`, and `direction`. Both operators are enabled; Trenitalia resolves a non-`S...` timetable ID from the exact station name.
 

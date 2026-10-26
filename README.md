@@ -82,7 +82,7 @@ curl 'http://127.0.0.1:3000/journeys?origin=Roma&destination=Milano&date=YYYY-MM
 | `GET` | `/locations` | Provider location search |
 | `GET` | `/journeys` | Normalized one-way journey search |
 | `GET` | `/train-locations` | Trenitalia/Italo station search |
-| `GET` | `/train-journeys` | Scheduled direct rail journeys |
+| `GET` | `/train-journeys` | Scheduled direct and one-change rail journeys |
 | `GET` | `/train-status` | Standalone live status where enabled |
 | `GET` | `/station-board` | Live arrivals/departures where enabled |
 

@@ -1,6 +1,6 @@
 {
   "name": "italian-bus-search",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "mcpName": "io.github.Alexxanddr/italian-bus-search",
   "description": "Read-only Italian bus search and local NeTEx rail timetable MCP server",
   "keywords": [

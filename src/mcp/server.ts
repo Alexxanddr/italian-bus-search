@@ -91,7 +91,7 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
   const railLiveProviders = dependencies.railLiveProviders ?? [new TrenitaliaLiveProvider(), new ItaloLiveProvider()];
   const limiter = createRateLimiter();
   const consumeSearch = dependencies.consumeSearch ?? (() => limiter("mcp"));
-  const server = new McpServer({ name: "italian-bus-search", version: "0.2.3" });
+  const server = new McpServer({ name: "italian-bus-search", version: "0.2.4" });
 
   server.registerTool("list_providers", {
     title: "List Italian bus providers",
@@ -216,14 +216,14 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
   server.registerTool("search_train_journeys", {
     title: "Search Italian train journeys",
     description: "TRAINS ONLY. Requires origin, destination, and date. When the user states passenger counts, always pass adults and children explicitly. Each price is the total for those passengers; never infer discounts or convert it to a per-person price.",
-    inputSchema: z.object({ origin: z.string(), destination: z.string(), date: z.string(), adults: z.number().int().min(1).max(9).default(1).describe("Number of adult passengers; pass explicitly when stated by the user"), children: z.number().int().min(0).max(9).default(0).describe("Number of child passengers; pass explicitly when stated by the user, including zero"), provider: z.enum(["trenitalia", "italo"]).optional(), limit: z.number().int().min(1).max(maximumResultLimit).default(defaultResultLimit) }),
+    inputSchema: z.object({ origin: z.string(), destination: z.string(), date: z.string(), adults: z.number().int().min(1).max(9).default(1).describe("Number of adult passengers; pass explicitly when stated by the user"), children: z.number().int().min(0).max(9).default(0).describe("Number of child passengers; pass explicitly when stated by the user, including zero"), provider: z.enum(["trenitalia", "italo"]).optional(), offset: z.number().int().min(0).default(0).describe("Result offset; paginate by adding the previous limit when truncated is true"), limit: z.number().int().min(1).max(maximumResultLimit).default(defaultResultLimit) }),
     outputSchema: z.object({ journeys: z.array(railJourneySchema), errors: z.array(providerErrorSchema), total: z.number().int().nonnegative(), truncated: z.boolean() }), annotations,
-  }, async ({ origin, destination, date, adults, children, provider, limit }) => {
+  }, async ({ origin, destination, date, adults, children, provider, offset, limit }) => {
     try {
       consumeSearch();
       const result = await railService.searchJourneys(validateSearchInput({ origin, destination, date, adults, children }), provider);
       const total = result.journeys.length;
-      const output = { journeys: result.journeys.slice(0, validateResultLimit(limit)), errors: result.errors, total, truncated: total > limit };
+      const output = { journeys: result.journeys.slice(offset, offset + validateResultLimit(limit)), errors: result.errors, total, truncated: total > offset + limit };
       return toolResult(output, [...output.journeys.map((journey) => `- [${journey.provider}] ${journey.origin.name} → ${journey.destination.name}: ${journey.departure} → ${journey.arrival}, ${journey.price === null ? "price unavailable" : `${journey.price.currency} ${journey.price.amount.toFixed(2)}`}${journey.bookingUrl === undefined ? "" : ` — [Continue on ${journey.provider}](${journey.bookingUrl})`}`), ...formatErrors(output.errors)].join("\n") || "No train journeys found.");
     } catch (error) { return toolError(error); }
   });

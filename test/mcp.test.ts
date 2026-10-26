@@ -117,6 +117,8 @@ test("returns rail prices and official search links through MCP structured outpu
   const first = (result.structuredContent as { journeys: Array<{ price: { amount: number }; bookingUrl: string }> }).journeys[0];
   assert.equal(first?.price.amount, 34.9);
   assert.equal(first?.bookingUrl, "https://biglietti.italotreno.com/it/booking/ricerca");
+  const nextPage = await client.callTool({ name: "search_train_journeys", arguments: { origin: "Roma Termini", destination: "Milano Centrale", date: futureDate, provider: "italo", offset: 1, limit: 1 } });
+  assert.deepEqual((nextPage.structuredContent as { journeys: unknown[]; total: number; truncated: boolean }), { journeys: [], errors: [], total: 1, truncated: false });
 });
 
 test("keeps partial location results and reports truncation", async (context) => {
