@@ -2,6 +2,14 @@
 
 All notable changes will be documented here. Releases follow Semantic Versioning.
 
+## 0.3.6 - 2026-10-27
+
+- Exclude FlixBus next-day suggestions using the Europe/Rome departure date and use the Italian booking site for EUR links.
+- Preserve Itabus city-wide stop coverage, explicit stop IDs and valid pre-filled search links.
+- Add optional physical-stop names, city and address for Albatross journeys without making search depend on metadata availability.
+- Preserve Trenitalia urban-transfer descriptions, fare exclusions and journey warnings in HTTP/MCP, compact text and snapshots.
+- Add regressions for the discrepancies observed against official sites in Chrome.
+
 ## 0.3.5 - 2026-10-27
 
 - Use live Trenitalia/Italo station catalogs and booking solutions exclusively; remove NeTEx parsing, refresh commands, dataset paths and the XML dependency.

@@ -7,6 +7,7 @@ const apiBaseUrl = "https://global.api.flixbus.com";
 const timeoutMs = 5_000;
 const locationCacheMs = 60 * 60_000;
 const journeyCacheMs = 60_000;
+const romeDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" });
 
 type Fetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 type RecordValue = Record<string, unknown>;
@@ -59,6 +60,8 @@ export function parseFlixBusJourneys(payload: unknown, input: SearchInput, origi
       if (!Number.isFinite(departureTimestamp) || !Number.isFinite(arrivalTimestamp) || arrivalTimestamp < departureTimestamp) {
         throw new AppError("INCOMPATIBLE_RESPONSE", "FlixBus journey timestamps are invalid", 502);
       }
+      const localDay = romeDay.format(new Date(departureTimestamp));
+      if (localDay !== input.date) continue;
       const duration = record(result.duration, "duration");
       const durationMinutes = Number(duration.hours) * 60 + Number(duration.minutes ?? 0);
       if (!Number.isFinite(durationMinutes) || durationMinutes < 0) throw new AppError("INCOMPATIBLE_RESPONSE", "FlixBus journey duration is invalid", 502);
@@ -94,7 +97,7 @@ function bookingUrl(origin: string, destination: string, input: SearchInput): st
   const date = input.date.split("-").reverse().join(".");
   const params = new URLSearchParams({ departureCity: origin, arrivalCity: destination, rideDate: date, adult: String(input.adults), currency: "EUR" });
   if (input.children > 0) params.set("children", String(input.children));
-  return `https://shop.flixbus.com/search?${params}`;
+  return `https://shop.flixbus.it/search?${params}`;
 }
 
 export class FlixBusProvider implements Provider {
@@ -116,7 +119,7 @@ export class FlixBusProvider implements Provider {
     const [origins, destinations] = await Promise.all([this.cities(input.origin), this.cities(input.destination)]);
     const origin = this.resolve(origins, input.origin, "origin");
     const destination = this.resolve(destinations, input.destination, "destination");
-    const params = new URLSearchParams({ from_city_id: origin.id, to_city_id: destination.id, departure_date: input.date.split("-").reverse().join("."), products: JSON.stringify({ adult: input.adults, ...(input.children > 0 ? { children: input.children } : {}) }), currency: "EUR", locale: "it_IT", search_by: "cities", include_after_midnight_rides: "1" });
+    const params = new URLSearchParams({ from_city_id: origin.id, to_city_id: destination.id, departure_date: input.date.split("-").reverse().join("."), products: JSON.stringify({ adult: input.adults, ...(input.children > 0 ? { children: input.children } : {}) }), currency: "EUR", locale: "it_IT", search_by: "cities", include_after_midnight_rides: "0" });
     const url = `${apiBaseUrl}/search/service/v4/search?${params}`;
     const cached = this.journeysCache.get(url);
     if (cached !== undefined) return cached;

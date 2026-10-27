@@ -72,6 +72,30 @@ test("searches Albatross localities and journeys with the anonymous protocol", a
   assert.equal(new Headers(searchCalls[0]?.init?.headers).get("albatross-tenant"), "autolineefederico");
 });
 
+test("enriches actual stops with locality and address, caches metadata and preserves journeys on metadata failure", async () => {
+  const fixture = JSON.parse(await readFile(new URL("fixtures/albatross-search.json", import.meta.url), "utf8"));
+  for (const failure of [false, true]) {
+    let stopCalls = 0;
+    const provider = new FedericoProvider(async (input) => {
+      const url = String(input);
+      if (url.includes("stopsFrom")) {
+        stopCalls++;
+        if (failure) throw new Error("metadata unavailable");
+        return Response.json([{ id: "REG-STOP", shortDescription: "Rende Cosenza Nord", address: "via Synthetic" }]);
+      }
+      if (url.includes("locations/from")) return Response.json([{ id: "ROM", description: "Roma" }]);
+      if (url.includes("locations/to")) return Response.json([{ id: "REG", description: "Cosenza" }]);
+      return Response.json(fixture);
+    });
+    const input = { origin: "Roma", destination: "Cosenza", date: "2026-11-10", adults: 1, children: 0 };
+    const result = await provider.searchJourneys(input);
+    assert.equal(result.length, 1); assert.equal(result[0]?.price?.amount, 37.5);
+    assert.deepEqual(result[0]?.destination, failure ? { id: "REG-STOP", name: "Cosenza" } : { id: "REG-STOP", name: "Rende Cosenza Nord", city: "Cosenza", address: "via Synthetic" });
+    await provider.searchJourneys({ ...input, date: "2026-11-11" });
+    assert.equal(stopCalls, failure ? 2 : 1);
+  }
+});
+
 test("configures every Albatross tenant adapter as available", () => {
   assert.deepEqual([new SalemiProvider(), new FedericoProvider(), new MarinoBusProvider()].map(({ id, status }) => ({ id, status })), [
     { id: "salemi", status: "available" },

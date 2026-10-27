@@ -100,6 +100,7 @@ The interface is deliberately small. Callers never receive provider response typ
 `src/providers/itabus.ts` integrates the Demandware endpoints used by Itabus. Its implementation owns:
 
 - parent-city and physical-stop resolution;
+- preservation of city scope instead of silently choosing a preferred stop;
 - exact matching for journey searches;
 - nested fare traversal and cheapest-price selection;
 - provider response validation;
@@ -113,6 +114,7 @@ The interface is deliberately small. Callers never receive provider response typ
 - tenant headers and endpoint construction;
 - passenger request bodies and child fare lookup;
 - multi-leg journey normalization;
+- best-effort physical-stop names and addresses from the public stopsFrom catalog;
 - provider response validation;
 - per-tenant location, destination, fare, and journey caches.
 

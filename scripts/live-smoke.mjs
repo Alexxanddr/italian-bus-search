@@ -53,6 +53,8 @@ try {
   const buses = await call("search_journeys", { ...args, snapshot: true });
   assert.ok(buses.value.searchId && buses.value.expiresAt);
   assert.ok(buses.value.journeys?.length > 0, "No bus results");
+  const departureDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" });
+  assert.ok(buses.value.journeys.every(({ departure }) => departureDay.format(new Date(departure)) === date), "Bus result departs outside the requested day");
   const stations = await call("search_train_locations", { query: "Roma Termini", limit: 50 });
   await call("search_train_locations", { query: "Cosenza", limit: 50 });
   const trains = await call("search_train_journeys", { ...args, origin: "Roma Termini", snapshot: true, offset: 0, limit: 10 });
@@ -74,6 +76,9 @@ try {
     const paola = await call("search_train_journeys", { ...args, origin: "Roma Termini", destination: "Paola", provider, snapshot: true });
     assert.ok(paola.value.journeys?.length > 0, `No Roma–Paola results for ${provider}`);
     assert.deepEqual(paola.value.errors, []);
+    for (const journey of paola.value.journeys) {
+      if (journey.legs.some(({ includedInPrice }) => includedInPrice === false)) assert.ok(journey.warnings?.length, "Missing excluded-transfer warning");
+    }
   }
   for (const station of stations.value.locations ?? []) {
     for (const direction of ["departures", "arrivals"]) {

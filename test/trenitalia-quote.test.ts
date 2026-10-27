@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { AppError } from "../src/domain.ts";
 import { TrenitaliaQuoteProvider } from "../src/rail/trenitalia-quote.ts";
+import { LiveRailProvider } from "../src/rail/booking.ts";
 
 const input = { origin: "Roma Termini", destination: "Milano Centrale", date: "2026-11-10", adults: 1, children: 0 };
 
@@ -17,6 +18,22 @@ test("normalizes saleability and prices from a synthetic lefrecce quote", async 
   assert.equal(quotes[1]?.available, false);
   assert.equal(quotes[1]?.price, null);
   assert.deepEqual(quotes[1]?.trainNumbers, ["UB"]);
+});
+
+test("preserves urban-transfer exclusion and exposes the warning without changing the quoted price", async () => {
+  const provider = new TrenitaliaQuoteProvider(async () => Response.json({ solutions: [{ solution: {
+    id: "synthetic-transfer", departureTime: "2026-11-10T22:43:00+01:00", arrivalTime: "2026-11-11T05:22:00+01:00",
+    status: "SALEABLE", price: { amount: 46.5, currency: "EUR" }, nodes: [
+      { origin: "Roma Termini", destination: "Roma Ostiense", departureTime: "2026-11-10T22:43:00+01:00", arrivalTime: "2026-11-10T23:00:00+01:00", train: { name: null, acronym: "UB", urban: true, trainCategory: "Urban transport (not included in the price)", denomination: "Urban transport from Roma Termini to Roma Ostiense" } },
+      { origin: "Roma Ostiense", destination: "Paola", departureTime: "2026-11-10T23:30:00+01:00", arrivalTime: "2026-11-11T05:22:00+01:00", train: { name: "795", urban: false } },
+    ],
+  } }] }));
+  const journey = (await new LiveRailProvider(provider).searchJourneys({ ...input, origin: "IT::StopPlace:1", destination: "IT::StopPlace:2" }))[0]!;
+  assert.equal(journey.price?.amount, 46.5);
+  assert.equal(journey.legs[0]?.transportMode, "urban_transfer");
+  assert.equal(journey.legs[0]?.includedInPrice, false);
+  assert.equal(journey.legs[1]?.includedInPrice, undefined);
+  assert.deepEqual(journey.warnings, ["Transfer not included in quoted price: Roma Termini → Roma Ostiense"]);
 });
 
 test("fails safely on quote rate limits and ambiguous locations", async () => {

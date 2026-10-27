@@ -78,8 +78,33 @@ test("searches live locations and journeys through an injected HTTP client", asy
   assert.equal((await provider.searchJourneys(input))[0]?.price?.amount, 19.99);
   assert.equal(calls.filter((url) => url.includes("Api-Stations")).length, 1);
   assert.equal(calls.filter((url) => url.includes("Api-Travels")).length, 1);
-  assert.match(calls.at(-1) ?? "", /origin=ROM1/);
-  assert.match(calls.at(-1) ?? "", /destination=COS1/);
+  assert.match(calls.at(-1) ?? "", /origin=ROM_T/);
+  assert.match(calls.at(-1) ?? "", /destination=COS_T/);
+});
+
+test("preserves city scope, exact stop IDs and verified booking link parameters", async () => {
+  const fixture = JSON.parse(await readFile(new URL("fixtures/itabus-travels.json", import.meta.url), "utf8"));
+  const calls: URL[] = [];
+  const provider = new ItabusProvider(async (input) => {
+    const url = new URL(String(input)); calls.push(url);
+    if (url.pathname.endsWith("Api-Stations")) return Response.json({ data: [
+      { code: "COS1", name: "Cosenza", parent: "COS_T" },
+      { code: "ROM_T", name: "Roma" }, { code: "ROM1", name: "Roma Tiburtina", parent: "ROM_T" },
+      { code: "COS_T", name: "Cosenza" }, { code: "COS3", name: "Rende (Cosenza Nord)", parent: "COS_T" },
+    ] });
+    const routes = [fixture.data.outbound.routes[0], { ...fixture.data.outbound.routes[0], id: "rende", destination: { code: "COS3", name: "Rende (Cosenza Nord)" } }];
+    return Response.json({ data: { outbound: { routes: url.searchParams.get("destination") === "COS_T" ? routes : [routes[1]] } } });
+  });
+  const input = { origin: "Roma", destination: "Cosenza", date: "2026-11-10", adults: 2, children: 1 };
+  const city = await provider.searchJourneys(input);
+  assert.equal(city.length, 2);
+  const link = new URL(city[0]!.bookingUrl!);
+  assert.equal(link.searchParams.get("origin"), "ROM_T"); assert.equal(link.searchParams.get("destination"), "COS_T");
+  assert.equal(link.searchParams.get("datestart"), input.date); assert.equal(link.searchParams.has("date"), false);
+  assert.equal(link.searchParams.get("adults"), "2"); assert.equal(link.searchParams.get("children"), "1");
+  const stop = await provider.searchJourneys({ ...input, origin: "ROM1", destination: "COS3" });
+  assert.equal(stop.length, 1); assert.equal(calls.at(-1)!.searchParams.get("destination"), "COS3");
+  assert.equal(new URL(stop[0]!.bookingUrl!).searchParams.get("origin"), "ROM1");
 });
 
 test("does not resolve Paola as Pietrapaola", async () => {

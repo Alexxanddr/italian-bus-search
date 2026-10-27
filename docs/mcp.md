@@ -51,7 +51,17 @@ Returns `locations`, provider-scoped `errors`, `total` before limiting, and `tru
 
 Returns `journeys`, provider-scoped `errors`, `total` before limiting, and `truncated`. Each journey includes normalized timing, availability, price, and an official `bookingUrl` when available.
 
-Salemi, Federico, and MarinoBus links open a public search route with origin, destination, date, and adult count. Itabus currently falls back to its official booking application because no stable public pre-filled URL has been verified. Links only hand the user off for manual continuation.
+Salemi, Federico, and MarinoBus links open a public search route with origin, destination, date, and adult count. Itabus links use resolved city/stop codes, datestart and adult/child counts. FlixBus links open the Italian booking site. Links only hand the user off for manual continuation.
+
+Itabus city searches include all stops; explicit stop IDs restrict results.
+Bus journey endpoints can expose actual stop names, city and address: preserve
+them in reports, especially when the physical stop is in Rende/Cosenza Nord.
+Departure dates use Europe/Rome and exclude next-day suggestions.
+Rail legs can mark urban transfers with transportMode, description and
+includedInPrice. Show every journey warning; a UB transfer must not be
+presented as a train or as included in the quoted fare when excluded.
+These optional fields are preserved in structured output, snapshot pages
+and compact display text.
 
 ### Rail tools
 

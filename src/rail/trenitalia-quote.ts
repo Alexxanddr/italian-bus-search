@@ -55,13 +55,21 @@ export class TrenitaliaQuoteProvider implements RailQuoteProvider {
             : null,
           observedAt,
           source: "Trenitalia lefrecce booking search",
-          legs: nodes.map((node, index) => ({
-            trainNumber: trainNumber(object(node.train)),
-            origin: { id: optionalString(node.bdoOrigin) ?? requiredString(node.origin), name: requiredString(node.origin) },
-            destination: { id: optionalString(nodes[index + 1]?.bdoOrigin) ?? requiredString(node.destination), name: requiredString(node.destination) },
-            departure: requiredString(node.departureTime),
-            arrival: requiredString(node.arrivalTime),
-          })),
+          legs: nodes.map((node, index) => {
+            const train = object(node.train);
+            return {
+              trainNumber: trainNumber(train),
+              ...(train.urban === true || train.acronym === "UB" ? {
+                transportMode: "urban_transfer" as const,
+                ...(/not included|non inclus[oa]/i.test(optionalString(train.trainCategory) ?? "") ? { includedInPrice: false } : {}),
+                ...(typeof train.denomination === "string" ? { description: String(train.denomination) } : {}),
+              } : {}),
+              origin: { id: optionalString(node.bdoOrigin) ?? requiredString(node.origin), name: requiredString(node.origin) },
+              destination: { id: optionalString(nodes[index + 1]?.bdoOrigin) ?? requiredString(node.destination), name: requiredString(node.destination) },
+              departure: requiredString(node.departureTime),
+              arrival: requiredString(node.arrivalTime),
+            };
+          }),
         });
       }
       if (solutions.length < 10 || nextDay) break;

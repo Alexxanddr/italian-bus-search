@@ -215,6 +215,27 @@ test("shares immutable train snapshots across stateless MCP exchanges and HTTP",
   assert.equal(missing.isError, true);
 });
 
+test("preserves stop addresses and excluded urban transfer warnings in MCP output and text", async (context) => {
+  const bus: Provider = { id: "working", status: "available", searchLocations: async () => [], searchJourneys: async () => [{ ...journey, destination: { ...journey.destination, name: "Rende Cosenza Nord", city: "Cosenza", address: "via Synthetic" } }] };
+  const rail: RailProvider = { id: "trenitalia", searchLocations: async () => [], searchJourneys: async () => [{
+    ...journey, provider: "trenitalia", journeyId: "urban", changes: 0,
+    price: { amount: 20, currency: "EUR", source: "fixture quote", observedAt: "2026-10-27T10:00:00Z" },
+    warnings: ["Transfer not included in quoted price: Roma Termini → Roma Ostiense"],
+    legs: [{ trainNumber: "UB", transportMode: "urban_transfer", includedInPrice: false, description: "Urban transport", origin: journey.origin, destination: journey.destination, departure: journey.departure, arrival: journey.arrival }],
+    timetableSource: { source: "fixture booking", publishedAt: "2026-10-27T10:00:00Z", validFrom: futureDate, validThrough: futureDate },
+  }] };
+  const { client, server } = await connect([bus], [rail]);
+  context.after(async () => { await client.close(); await server.close(); });
+  const args = { origin: "Roma", destination: "Cosenza", date: futureDate };
+  const buses = await client.callTool({ name: "search_journeys", arguments: args });
+  assert.equal((buses.structuredContent as { journeys: Array<{ destination: { address: string } }> }).journeys[0]?.destination.address, "via Synthetic");
+  assert.match(JSON.stringify(buses.content), /via Synthetic/);
+  const trains = await client.callTool({ name: "search_train_journeys", arguments: args });
+  const first = (trains.structuredContent as { journeys: Array<{ warnings: string[]; legs: Array<{ includedInPrice: boolean }> }> }).journeys[0]!;
+  assert.equal(first.legs[0]?.includedInPrice, false); assert.equal(first.warnings.length, 1);
+  assert.match(JSON.stringify(trains.content), /Transfer not included/);
+});
+
 test("keeps partial location results and reports truncation", async (context) => {
   const calls = { locations: 0, journeys: 0 };
   const failing: Provider = {

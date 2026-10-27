@@ -43,8 +43,8 @@ export type Location = {
 export type Journey = {
   provider: string;
   tripId: string;
-  origin: { id: string; name: string };
-  destination: { id: string; name: string };
+  origin: { id: string; name: string; city?: string; address?: string };
+  destination: { id: string; name: string; city?: string; address?: string };
   departure: string;
   arrival: string;
   durationMinutes: number;
@@ -86,6 +86,9 @@ export type RailPrice = {
 
 export type RailLeg = {
   trainNumber: string;
+  transportMode?: "urban_transfer";
+  includedInPrice?: boolean;
+  description?: string;
   origin: { id: string; name: string };
   destination: { id: string; name: string };
   departure: string;
@@ -115,6 +118,7 @@ export type RailJourney = {
   bookingUrl?: string;
   timetableSource: DataSource;
   liveStatus?: RailLiveStatus;
+  warnings?: string[];
 };
 
 export type RailSearchInput = SearchInput;

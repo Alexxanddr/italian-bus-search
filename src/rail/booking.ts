@@ -14,6 +14,7 @@ export class LiveRailProvider implements RailProvider {
         throw new AppError("INCOMPATIBLE_RESPONSE", "Invalid rail quote timing or price", 502);
       }
       if (quote.legs === undefined || quote.legs.length === 0) throw new AppError("INCOMPATIBLE_RESPONSE", "Rail quote has no usable journey legs", 502);
+      const warnings = quote.legs.filter((leg) => leg.includedInPrice === false).map((leg) => `Transfer not included in quoted price: ${leg.origin.name} → ${leg.destination.name}`);
       return {
         provider: this.id,
         journeyId: `${this.id}:quote:${input.date}:${index}`,
@@ -22,6 +23,7 @@ export class LiveRailProvider implements RailProvider {
         durationMinutes: Math.round((Date.parse(quote.arrival) - Date.parse(quote.departure)) / 60_000),
         changes: quote.legs.length - 1, legs: quote.legs,
         available: quote.available, price: quote.price,
+        ...(warnings.length > 0 ? { warnings } : {}),
         bookingUrl: this.id === "trenitalia" ? "https://www.lefrecce.it/Channels.Website.WEB/" : "https://biglietti.italotreno.com/it/booking/ricerca",
         timetableSource: { source: quote.source, publishedAt: quote.observedAt, validFrom: input.date, validThrough: input.date },
       };

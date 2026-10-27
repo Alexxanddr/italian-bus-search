@@ -52,8 +52,8 @@ const locationSchema = z.object({
 const journeySchema = z.object({
   provider: z.string(),
   tripId: z.string(),
-  origin: z.object({ id: z.string(), name: z.string() }),
-  destination: z.object({ id: z.string(), name: z.string() }),
+  origin: z.object({ id: z.string(), name: z.string(), city: z.string().optional(), address: z.string().optional() }),
+  destination: z.object({ id: z.string(), name: z.string(), city: z.string().optional(), address: z.string().optional() }),
   departure: z.string(),
   arrival: z.string(),
   durationMinutes: z.number(),
@@ -64,6 +64,7 @@ const journeySchema = z.object({
 });
 const dataSourceSchema = z.object({ source: z.string(), publishedAt: z.string(), validFrom: z.string(), validThrough: z.string() });
 const railLegSchema = z.object({
+  transportMode: z.literal("urban_transfer").optional(), includedInPrice: z.boolean().optional(), description: z.string().optional(),
   trainNumber: z.string(),
   origin: z.object({ id: z.string(), name: z.string() }),
   destination: z.object({ id: z.string(), name: z.string() }),
@@ -78,6 +79,7 @@ const railJourneySchema = z.object({
   provider: z.enum(["trenitalia", "italo"]), journeyId: z.string(),
   origin: z.object({ id: z.string(), name: z.string() }), destination: z.object({ id: z.string(), name: z.string() }),
   departure: z.string(), arrival: z.string(), durationMinutes: z.number().int().nonnegative(), changes: z.number().int().nonnegative(),
+  warnings: z.array(z.string()).optional(),
   legs: z.array(railLegSchema), available: z.boolean().nullable(),
   price: z.object({ amount: z.number(), currency: z.string(), fareName: z.string().optional(), travelClass: z.string().optional(), observedAt: z.string(), source: z.string() }).nullable(),
   bookingUrl: z.string().optional(), timetableSource: dataSourceSchema, liveStatus: liveStatusSchema.optional(),
@@ -224,7 +226,7 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
     try {
       consumeSearch();
       const output = await snapshots.page("train", () => railService.searchJourneys(validateSearchInput({ origin, destination, date, adults, children }), provider), { snapshot, searchId, offset, limit, hasQuery: [origin, destination, date, provider, adults, children].some((value) => value !== undefined) });
-      return toolResult(output, [...output.journeys.map((journey) => `- [${journey.provider}] ${journey.origin.name} → ${journey.destination.name}: ${journey.departure} → ${journey.arrival}, ${journey.price === null ? "price unavailable" : `${journey.price.currency} ${journey.price.amount.toFixed(2)}`}${journey.bookingUrl === undefined ? "" : ` — [Continue on ${journey.provider}](${journey.bookingUrl})`}`), ...formatErrors(output.errors)].join("\n") || "No train journeys found.");
+      return toolResult(output, [...output.journeys.map((journey) => `- [${journey.provider}] ${journey.origin.name} → ${journey.destination.name}: ${journey.departure} → ${journey.arrival}, ${journey.price === null ? "price unavailable" : `${journey.price.currency} ${journey.price.amount.toFixed(2)}`}${journey.bookingUrl === undefined ? "" : ` — [Continue on ${journey.provider}](${journey.bookingUrl})`}${journey.warnings?.length ? ` — ${journey.warnings.join("; ")}` : ""}`), ...formatErrors(output.errors)].join("\n") || "No train journeys found.");
     } catch (error) { return toolError(error); }
   });
 
@@ -278,7 +280,7 @@ function formatJourney(journey: z.infer<typeof journeySchema>): string {
   const hours = Math.floor(journey.durationMinutes / 60);
   const minutes = journey.durationMinutes % 60;
   const duration = hours === 0 ? `${minutes} min` : `${hours}h${minutes === 0 ? "" : ` ${minutes}m`}`;
-  return `- [${journey.provider}] ${journey.origin.name} → ${journey.destination.name}: ${journey.departure} → ${journey.arrival}, ${duration}, ${price}, ${availability}${booking}`;
+  return `- [${journey.provider}] ${journey.origin.name}${journey.origin.address ? ` (${journey.origin.address})` : ""} → ${journey.destination.name}${journey.destination.address ? ` (${journey.destination.address})` : ""}: ${journey.departure} → ${journey.arrival}, ${duration}, ${price}, ${availability}${booking}`;
 }
 
 function formatErrors(errors: Array<z.infer<typeof providerErrorSchema>>): string[] {

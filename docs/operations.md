@@ -51,7 +51,7 @@ Use `GET /providers` to inspect configured adapter status, but note that it also
 
 ## Caches
 
-Successful bus journeys and rail quote observations are cached for 60 seconds. Locations, destination catalogs, and Albatross fare categories are cached for one hour. Caches:
+Successful bus journeys and rail quote observations are cached for 60 seconds. Locations, destination catalogs, Albatross stop labels and fare categories are cached for one hour. Caches:
 
 - live only in process memory;
 - are not shared between replicas;
@@ -90,6 +90,7 @@ Each MCP handler permits 60 combined bus and rail search/status calls per minute
 - Rail booking failure returns no journeys for that operator and an explicit error; successful operators remain.
 - A successful empty journey search returns HTTP 200 with `NO_JOURNEYS`; HTTP 503 is reserved for empty results containing another provider failure.
 - A successful empty booking response stays empty; no timetable combinations are generated.
+- Optional Albatross stop-catalog failure preserves priced journeys with their search-locality labels and IDs; no address is fabricated.
 - Trenitalia searches stop at the requested local day; reaching the 100-solution safety bound returns an explicit `QUOTE_UNAVAILABLE` instead of silently reporting a complete live set.
 
 Use the `errors` array for provider-level diagnosis. The application intentionally omits upstream bodies and stack traces.

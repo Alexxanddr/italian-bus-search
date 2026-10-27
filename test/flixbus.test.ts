@@ -24,7 +24,7 @@ test("normalizes FlixBus journeys and keeps unknown fee totals nullable", () => 
   assert.equal(journeys[0]?.price?.amount, 22);
   assert.equal(journeys[1]?.price, null);
   assert.equal(journeys[0]?.origin.name, "Roma Tiburtina");
-  assert.match(journeys[0]?.bookingUrl ?? "", /shop\.flixbus\.com\/search/);
+  assert.match(journeys[0]?.bookingUrl ?? "", /shop\.flixbus\.it\/search/);
 });
 
 test("uses autocomplete and search endpoints with cache", async () => {
@@ -57,6 +57,17 @@ test("rejects invalid timestamps", () => {
   const invalid = payload();
   invalid.trips[0].results.ok.departure.date = "not-a-date";
   assert.throws(() => parseFlixBusJourneys(invalid, input, origin, destination), (error: unknown) => error instanceof AppError && error.code === "INCOMPATIBLE_RESPONSE");
+});
+
+test("filters by the requested Europe/Rome departure day while keeping overnight arrivals", () => {
+  const data = payload(), template = data.trips[0]!.results.ok;
+  const variants = [
+    { ...template, uid: "previous-UTC-day", departure: { date: "2026-11-09T23:30:00Z" }, arrival: { date: "2026-11-10T06:00:00Z" } },
+    { ...template, uid: "overnight", departure: { date: "2026-11-10T22:30:00Z" }, arrival: { date: "2026-11-11T05:00:00Z" } },
+    { ...template, uid: "next-local-day", departure: { date: "2026-11-10T23:30:00Z" }, arrival: { date: "2026-11-11T06:00:00Z" } },
+  ];
+  const result = parseFlixBusJourneys({ ...data, trips: variants.map((value) => ({ results: { ok: value, missingFee: value } })) }, input, origin, destination);
+  assert.deepEqual([...new Set(result.map(({ tripId }) => tripId))], ["previous-UTC-day", "overnight"]);
 });
 
 test("reuses discovered city IDs without autocompleting opaque IDs", async () => {

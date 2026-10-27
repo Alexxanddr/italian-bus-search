@@ -10,6 +10,7 @@ const journeyCacheMs = 60_000;
 type Fetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 type RecordValue = Record<string, unknown>;
 type Locality = Location & { names: string[] };
+type Stop = { id: string; name: string; address?: string };
 type ProviderConfig = {
   id: "salemi" | "federico" | "marinobus";
   tenant: "salemi" | "autolineefederico" | "marinobus";
@@ -81,6 +82,7 @@ export function parseAlbatrossJourneys(
   origin: Locality,
   destination: Locality,
   bookingUrl: string,
+  stops: ReadonlyMap<string, Stop> = new Map(),
 ): Journey[] {
   if (!Array.isArray(payload)) {
     throw new AppError("INCOMPATIBLE_RESPONSE", `${provider} journeys are missing`, 502);
@@ -111,8 +113,8 @@ export function parseAlbatrossJourneys(
     return {
       provider,
       tripId: tripIds.join("+"),
-      origin: { id: string(first.departureStopId, "departureStopId", provider), name: origin.name },
-      destination: { id: string(last.arrivalStopId, "arrivalStopId", provider), name: destination.name },
+      origin: endpoint(first.departureStopId, origin),
+      destination: endpoint(last.arrivalStopId, destination),
       departure,
       arrival,
       durationMinutes,
@@ -124,6 +126,10 @@ export function parseAlbatrossJourneys(
       bookingUrl,
     };
   });
+  function endpoint(value: unknown, locality: Locality) {
+    const id = string(value, "stopId", provider), stop = stops.get(id);
+    return stop === undefined ? { id, name: locality.name } : { ...stop, city: locality.name };
+  }
 }
 
 export class AlbatrossProvider implements Provider {
@@ -134,6 +140,7 @@ export class AlbatrossProvider implements Provider {
   private readonly fetcher: Fetcher;
   private localitiesCache?: { expiresAt: number; value: Locality[] };
   private fareCategoriesCache?: { expiresAt: number; value: unknown[] };
+  private stopsCache?: { expiresAt: number; value: ReadonlyMap<string, Stop> };
   private readonly destinationsCache = new TtlCache<Locality[]>(locationCacheMs);
   private readonly journeysCache = new TtlCache<Journey[]>(journeyCacheMs);
 
@@ -175,6 +182,8 @@ export class AlbatrossProvider implements Provider {
       origin,
       destination,
       bookingSearchUrl(this.config.bookingUrl, origin, destination, input),
+      // Stop labels are optional metadata; failure must not erase priced journeys.
+      await this.stops().catch(() => new Map<string, Stop>()),
     );
     this.journeysCache.set(key, journeys);
     return journeys;
@@ -187,6 +196,20 @@ export class AlbatrossProvider implements Provider {
       this.id,
     );
     this.localitiesCache = { expiresAt: Date.now() + locationCacheMs, value };
+    return value;
+  }
+
+  private async stops(): Promise<ReadonlyMap<string, Stop>> {
+    if (this.stopsCache !== undefined && this.stopsCache.expiresAt > Date.now()) return this.stopsCache.value;
+    const payload = await this.getJson(`${this.config.baseUrl}locations/stopsFrom?saleGroupId=`);
+    if (!Array.isArray(payload)) throw new AppError("INCOMPATIBLE_RESPONSE", `${this.id} stops are missing`, 502);
+    const value = new Map(payload.map((raw) => {
+      const stop = record(raw, "stop", this.id), id = string(stop.id, "stop.id", this.id);
+      const name = string(stop.shortDescription || stop.description, "stop.description", this.id);
+      if (stop.address !== undefined && stop.address !== null && typeof stop.address !== "string") throw new AppError("INCOMPATIBLE_RESPONSE", `${this.id} stop address is invalid`, 502);
+      return [id, { id, name, ...(typeof stop.address === "string" && stop.address.trim() !== "" ? { address: stop.address } : {}) }] as const;
+    }));
+    this.stopsCache = { expiresAt: Date.now() + locationCacheMs, value };
     return value;
   }
 

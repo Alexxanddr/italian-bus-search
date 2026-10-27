@@ -5,7 +5,7 @@ import { responseJson } from "../upstream.ts";
 
 const baseUrl = "https://app.itabus.it/on/demandware.store/Sites-ITABUS-Site/it";
 function bookingUrl(input: SearchInput): string {
-  const params = new URLSearchParams({ origin: input.origin, destination: input.destination, date: input.date, adults: String(input.adults), children: String(input.children) });
+  const params = new URLSearchParams({ origin: input.origin, destination: input.destination, datestart: input.date, adults: String(input.adults), children: String(input.children) });
   return `https://app.itabus.it/it/search?${params}`;
 }
 const timeoutMs = 5_000;
@@ -151,19 +151,17 @@ function matches(station: Station, value: string): boolean {
 
 function resolveStation(stations: Station[], value: string): Station {
   const query = normalize(value);
-  const exact = stations.find((station) => normalize(station.id) === query || normalize(station.name) === query);
-  if (exact?.parent !== undefined) return exact;
-  if (exact !== undefined) {
-    const prefix = exact.id.replace(/_T$/, "");
-    return stations.find((station) => station.parent === exact.id && station.id === `${prefix}1`)
-      ?? stations.find((station) => station.parent === exact.id && /^[A-Z]{3}\d+$/.test(station.id))
-      ?? exact;
-  }
+  const exact = stations.find((station) => normalize(station.id) === query)
+    ?? stations.find((station) => station.parent === undefined && normalize(station.name) === query)
+    ?? stations.find((station) => normalize(station.name) === query);
+  if (exact !== undefined) return exact;
   const candidates = stations.filter((station) =>
     [station.id, station.name, station.city, ...station.synonyms]
       .some((candidate) => normalize(candidate) === query)
   );
   const physical = candidates.find((station) => station.parent !== undefined && /^[A-Z]{3}\d+$/.test(station.id));
+  const city = candidates.find((station) => station.parent === undefined);
+  if (city !== undefined) return city;
   if (physical !== undefined) return physical;
   throw new AppError("UNKNOWN_LOCATION", `Unknown Itabus location: ${value}`, 404);
 }
@@ -217,7 +215,7 @@ export class ItabusProvider implements Provider {
     const url = `${baseUrl}/Api-Travels?${parameters}`;
     const cached = this.journeysCache.get(url);
     if (cached !== undefined) return cached;
-    const journeys = parseItabusJourneys(await this.getJson(url), input);
+    const journeys = parseItabusJourneys(await this.getJson(url), { ...input, origin: origin.id, destination: destination.id });
     this.journeysCache.set(url, journeys);
     return journeys;
   }

@@ -19,6 +19,8 @@ The project hides provider-specific station catalogs, request formats, fare stru
 - MCP over local stdio or stateless Streamable HTTP at `/mcp`, with backward-compatible bus tools and separate rail tools.
 - Trenitalia and Italo station and journey searches directly from their live booking APIs.
 - Official links for continuing a search manually on provider sites.
+- Searches respect the requested departure day; city searches preserve all Itabus stops, with physical-stop names/addresses where available.
+- Rail warnings identify urban transfers excluded from the quoted fare.
 - Structured, provider-scoped errors instead of leaked upstream responses.
 - Finite upstream request timeouts and bounded asynchronous quote polling.
 - One-hour location caches and 60-second journey caches.

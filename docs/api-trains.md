@@ -174,6 +174,29 @@ The price is the total for the requested passengers at `observedAt`, not a
 per-person price. `bookingUrl` is only for manual continuation. The HTTP route
 returns the complete result set; MCP adds `offset` and `limit` pagination.
 
+### Transfers outside the quoted fare
+
+Trenitalia booking solutions may include an urban transfer between stations.
+The legacy `trainNumber` field remains (for example `UB`), but an urban
+leg is explicitly marked `transportMode: "urban_transfer"`. When the
+source states that its ticket is excluded, the leg has
+`includedInPrice: false` and the journey includes a `warnings` array.
+`description` optionally preserves the source's transfer description.
+
+```json
+{
+  "trainNumber":"UB",
+  "transportMode":"urban_transfer",
+  "includedInPrice":false,
+  "description":"Urban transport (not included in the price) from Roma Termini to Roma Ostiense"
+}
+```
+
+Always show the warnings alongside the fare. Do not present UB as a train
+or imply that the quoted price covers a transfer explicitly excluded by the
+provider. The price stays exactly as quoted; no extra cost is estimated.
+Absent `includedInPrice` means unreported, not true or false.
+
 ## `GET /train-status`
 
 | Parameter | Required | Meaning |
