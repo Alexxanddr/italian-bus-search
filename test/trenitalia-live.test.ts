@@ -13,7 +13,7 @@ test("normalizes dated train status and station boards from synthetic ViaggiaTre
     return Response.json([{ numeroTreno: 9660, orarioPartenza: 1792948500000, ritardo: 7 }]);
   };
   const provider = new TrenitaliaLiveProvider(fetcher);
-  const status = await provider.getTrainStatus({ trainNumber: "9516", serviceDate: "2026-11-10", origin: "SALERNO" });
+  const status = await provider.getTrainStatus({ trainNumber: "9516", serviceDate: "2026-11-10", origin: "ROMA TERMINI" });
   assert.equal(status.freshness, "current");
   assert.equal(status.delayMinutes, 12);
   const board = await provider.getStationBoard({ stationId: "IT::StopPlace:830008409", stationName: "ROMA TERMINI", direction: "departures" });
@@ -24,5 +24,8 @@ test("normalizes dated train status and station boards from synthetic ViaggiaTre
 
 test("distinguishes missing trains and incompatible live responses", async () => {
   await assert.rejects(new TrenitaliaLiveProvider(async () => new Response("")).getTrainStatus({ trainNumber: "1", serviceDate: "2026-11-10", origin: "ROMA" }), (error: unknown) => error instanceof AppError && error.code === "TRAIN_NOT_FOUND");
+  const epoch = new Date("2026-11-10T00:00:00+01:00").getTime();
+  const ambiguous = `9516 - SALERNO - 10/11/26|9516-S09818-${epoch}\n9516 - TORINO - 10/11/26|9516-S00219-${epoch}`;
+  await assert.rejects(new TrenitaliaLiveProvider(async () => new Response(ambiguous)).getTrainStatus({ trainNumber: "9516", serviceDate: "2026-11-10", origin: "ROMA" }), (error: unknown) => error instanceof AppError && error.code === "TRAIN_NOT_FOUND");
   await assert.rejects(new TrenitaliaLiveProvider(async () => new Response("bad")).getStationBoard({ stationId: "S08409", stationName: "ROMA TERMINI", direction: "departures" }), (error: unknown) => error instanceof AppError && error.code === "INCOMPATIBLE_RESPONSE");
 });

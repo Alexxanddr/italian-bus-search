@@ -56,8 +56,8 @@ Salemi, Federico, and MarinoBus links open a public search route with origin, de
 - `list_train_providers` lists operators and configured schedule, price, live-status, and station-board capabilities without contacting upstream systems.
 - `search_train_locations` resolves Trenitalia/Italo stations. Names are preferred across operators; IDs are provider-specific. It returns `locations`, provider errors, `total`, and `truncated`.
 - `search_train_journeys` accepts date/passenger fields plus `offset` and `limit`, and returns the provider's live booking solutions with all reported legs, availability, passenger-total prices, official search links, `total`, `truncated`, and provider errors. When every result is requested, advance `offset` by `limit` until `truncated` is false. If a quote source fails, NeTEx schedules remain available with `price: null` and an explicit provider error. Each result carries source/freshness metadata. Use only `bookingUrl` for manual purchase continuation.
-- `get_train_status` requires `provider`, `trainNumber`, `serviceDate`, and `origin`. For Trenitalia, `origin` is the train's service origin name or ViaggiaTreno `S...` code. Italo responses remain standalone with `freshness: date_unverified`.
-- `get_station_board` requires `provider`, `stationId`, `stationName`, and `direction`. Both operators are enabled; Trenitalia resolves a non-`S...` timetable ID from the exact station name.
+- `get_train_status` requires `provider`, `trainNumber`, `serviceDate`, and `origin`. For Trenitalia, the service-origin name or ViaggiaTreno `S...` code disambiguates multiple same-date records; when the date has exactly one record, an origin returned on a journey leg is also accepted. Italo responses remain standalone with `freshness: date_unverified`.
+- `get_station_board` requires `provider`, `stationId`, `stationName`, and `direction`. Both operators accept the IDs returned by `search_train_locations`; Trenitalia resolves a non-`S...` timetable ID from the exact station name and Italo extracts its operator code from the NeTEx ID.
 
 ## Results and errors
 

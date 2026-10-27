@@ -2,6 +2,13 @@
 
 All notable changes will be documented here. Releases follow Semantic Versioning.
 
+## 0.3.3 - 2026-10-27
+
+- Accept Italo NeTEx station IDs directly in live station-board requests.
+- Resolve a unique dated Trenitalia status record when callers only know a journey-leg origin.
+- Keep public provider documentation aligned with private research-note conventions.
+- Exclude local private research notes from npm package contents.
+
 ## 0.3.2 - 2026-10-26
 
 - Renamed the npm package, MCP Registry identity, executable, server, deployment, and documentation to `italian-travel-search`.

@@ -65,7 +65,7 @@ Changing a domain field affects the HTTP interface, every adapter, fixtures, and
 
 ### MCP module
 
-`src/mcp/server.ts` keeps the three bus tools over `SearchService` and registers four rail tools over `RailSearchService`, quote adapters, and live adapters. It owns MCP schemas, bounded result presentation, structured content, and safe tool errors. `createBusMcpServer({ providers, railProviders, railQuoteProviders, railLiveProviders })` is its test seam.
+`src/mcp/server.ts` keeps the three bus tools over `SearchService` and registers five rail tools over `RailSearchService`, quote adapters, and live adapters. It owns MCP schemas, bounded result presentation, structured content, and safe tool errors. `createBusMcpServer({ providers, railProviders, railQuoteProviders, railLiveProviders })` is its test seam.
 
 `src/mcp/stdio.ts` owns local process transport and shutdown. `src/app.ts` mounts the same server factory at `/mcp` using the SDK's stateless Streamable HTTP handler. The complete interface is in [mcp.md](mcp.md).
 
@@ -156,7 +156,7 @@ Tests cross public seams:
 - `test/search.test.ts` supplies complete `Provider` adapters and verifies aggregation.
 - provider tests inject a `Fetcher`, feed synthetic fixtures, and inspect normalized results and outbound requests.
 
-The automated suite is deterministic and offline. Live checks are separate, low-volume research activities documented in [research.md](research.md).
+The automated suite is deterministic and offline. Live checks are separate, low-volume research activities documented in gitignored `docs/private/*.hide.md` notes.
 
 ## Deliberate constraints
 

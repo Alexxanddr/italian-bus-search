@@ -10,7 +10,8 @@ export class TrenitaliaLiveProvider implements RailLiveProvider {
 
   async getTrainStatus({ trainNumber, serviceDate, origin }: { trainNumber: string; serviceDate: string; origin: string }): Promise<RailLiveStatus> {
     const candidates = parseTrainCandidates(await this.text(`cercaNumeroTrenoTrenoAutocomplete/${encodeURIComponent(trainNumber)}`));
-    const candidate = candidates.find((value) => localDate(value.epoch) === serviceDate && (origin.localeCompare(value.originCode, undefined, { sensitivity: "accent" }) === 0 || origin.localeCompare(value.originName, undefined, { sensitivity: "accent" }) === 0));
+    const dated = candidates.filter((value) => localDate(value.epoch) === serviceDate);
+    const candidate = dated.find((value) => origin.localeCompare(value.originCode, undefined, { sensitivity: "accent" }) === 0 || origin.localeCompare(value.originName, undefined, { sensitivity: "accent" }) === 0) ?? (dated.length === 1 ? dated[0] : undefined);
     if (candidate === undefined) throw new AppError("TRAIN_NOT_FOUND", `Trenitalia train ${trainNumber} was not found for ${serviceDate} and origin ${origin}`, 404);
     const data = object(await this.json(`andamentoTreno/${encodeURIComponent(candidate.originCode)}/${encodeURIComponent(trainNumber)}/${candidate.epoch}`));
     return { observedAt: new Date().toISOString(), source: "Trenitalia ViaggiaTreno", freshness: "current", delayMinutes: optionalNumber(data.ritardo), cancelled: data.cancellato === true ? true : undefined };

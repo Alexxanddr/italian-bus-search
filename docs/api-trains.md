@@ -172,7 +172,7 @@ returns the complete result set; MCP adds `offset` and `limit` pagination.
 | `provider` | yes | `trenitalia` or `italo` |
 | `trainNumber` | yes | Operator train number |
 | `serviceDate` | yes | Date in `YYYY-MM-DD` |
-| `origin` | yes | Trenitalia service-origin name/`S...` code, or Italo station code |
+| `origin` | yes | Trenitalia service-origin name/`S...` code (or a journey-leg origin when the date has one matching record), or Italo station code |
 
 ```sh
 curl 'http://127.0.0.1:3000/train-status?provider=trenitalia&trainNumber=9516&serviceDate=2026-11-15&origin=Roma%20Termini'
@@ -196,12 +196,12 @@ that the returned instance belongs to the requested date.
 | Parameter | Required | Meaning |
 |---|---:|---|
 | `provider` | yes | `trenitalia` or `italo` |
-| `stationId` | yes | Operator station ID |
+| `stationId` | yes | Station ID returned by `/train-locations`; raw operator codes are also accepted |
 | `stationName` | yes | Exact station name used for safe resolution |
 | `direction` | yes | `arrivals` or `departures` |
 
 ```sh
-curl 'http://127.0.0.1:3000/station-board?provider=italo&stationId=RMT&stationName=Roma%20Termini&direction=departures'
+curl 'http://127.0.0.1:3000/station-board?provider=italo&stationId=IT%3A%3AStopPlace%3ARMT&stationName=Roma%20Termini%20%28Rome%29&direction=departures'
 ```
 
 ```json

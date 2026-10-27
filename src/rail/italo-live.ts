@@ -16,11 +16,12 @@ export class ItaloLiveProvider implements RailLiveProvider {
   }
 
   async getStationBoard({ stationId, stationName, direction }: { stationId: string; stationName: string; direction: "arrivals" | "departures" }): Promise<StationBoard> {
-    const query = new URLSearchParams({ CodiceStazione: stationId, NomeStazione: stationName });
+    const resolved = /(?:^|:)StopPlace:([^:]+)$/.exec(stationId)?.[1] ?? stationId;
+    const query = new URLSearchParams({ CodiceStazione: resolved, NomeStazione: stationName });
     const data = object(await this.request(`RicercaStazioneService?${query}`));
     if (data.IsEmpty === true) throw new AppError("UNKNOWN_LOCATION", `Italo station ${stationName} was not found`, 404);
     const items = array(data[direction === "arrivals" ? "ListaTreniArrivo" : "ListaTreniPartenza"]);
-    return { provider: "italo", station: { id: stationId, name: string(data.DescrizioneLocalita, "DescrizioneLocalita") }, direction, observedAt: new Date().toISOString(), source: "Italo In Viaggio (date unverified)", services: items.map((item) => { const row = object(item); return { trainNumber: string(row.Numero, "Numero"), scheduledTime: string(row.OraPassaggio, "OraPassaggio"), delayMinutes: optionalNumber(row.Ritardo) }; }) };
+    return { provider: "italo", station: { id: resolved, name: string(data.DescrizioneLocalita, "DescrizioneLocalita") }, direction, observedAt: new Date().toISOString(), source: "Italo In Viaggio (date unverified)", services: items.map((item) => { const row = object(item); return { trainNumber: string(row.Numero, "Numero"), scheduledTime: string(row.OraPassaggio, "OraPassaggio"), delayMinutes: optionalNumber(row.Ritardo) }; }) };
   }
 
   private async request(path: string): Promise<unknown> {

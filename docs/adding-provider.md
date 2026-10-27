@@ -11,7 +11,7 @@ Before implementation:
 - constrain the integration to anonymous location and journey search;
 - identify whether prices or availability may be stored or redistributed.
 
-Record primary-source evidence and unresolved questions in [research.md](research.md). Authorization for one deployment does not automatically apply to downstream users.
+Record primary-source evidence and unresolved questions in a gitignored `docs/private/*.hide.md` note. Authorization for one deployment does not automatically apply to downstream users.
 
 ## 2. Identify the protocol
 
@@ -80,7 +80,7 @@ With authorization, perform one low-volume search on a route and future date sho
 - adult and child passenger mapping when supported;
 - no login, purchase, or customer-data mutation occurred.
 
-Add dated, non-sensitive findings to [research.md](research.md). Do not commit raw captures.
+Add dated, non-sensitive findings to a gitignored `docs/private/*.hide.md` note. Do not commit raw captures.
 
 ## 8. Finish
 
