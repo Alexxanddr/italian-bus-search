@@ -7,7 +7,7 @@ The train API combines two sources with explicit provenance:
 - authorized Italian NAP NeTEx caches provide stations and the scheduled-service baseline;
 - Trenitalia and Italo booking searches provide current saleable journeys, passenger-specific total prices, and availability.
 
-When a booking search succeeds and returns solutions, that live result set is
+When a booking search succeeds, including an empty response, that live result set is
 authoritative. Matching NeTEx journeys are enriched and additional live
 multi-change solutions are constructed from the booking response. Theoretical
 NeTEx combinations not offered by the booking system are omitted.
@@ -16,6 +16,15 @@ If a booking search fails, scheduled journeys remain available with
 `price: null` and a `QUOTE_UNAVAILABLE` or `RATE_LIMITED` provider error. A
 successful non-saleable solution can also contain `price: null` and
 `available: false`. A missing price is never converted to zero or inferred.
+
+Quote searches still run when the local timetable is missing or expired; the
+response retains the schedule error while returning any successful live data.
+If a timetable cannot be loaded, station discovery falls back to the verified
+live catalogs and labels those locations `source: live`; the cache error is
+preserved. Trenitalia's live autocomplete fallback is capped at 50 matches;
+use a more precise station name when needed.
+Timetable departures use the calendar day at the boarding station, including
+trains whose service began the previous day and transfers after midnight.
 
 ## `GET /train-providers`
 
@@ -61,6 +70,12 @@ five seconds; Italo individual requests after eight seconds with a bounded
 20-second polling operation. HTTP `429`, timeouts, malformed JSON, oversized
 responses, ambiguous stations, and cleanup behavior are mapped to the error
 codes documented in [HTTP API](api.md).
+
+Trenitalia pagination excludes departures after the requested day. If the
+100-result safety bound is reached, the quote fails explicitly with
+`QUOTE_UNAVAILABLE`; it is never presented as a complete live response.
+Italo structures other than the verified single-operator, single-segment
+shape fail explicitly rather than silently dropping those solutions.
 
 ## `GET /train-locations`
 

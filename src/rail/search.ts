@@ -22,7 +22,15 @@ export class RailSearchService {
     const providers = this.select(providerId);
     const settled = await Promise.all(providers.map(async (provider) => {
       try { return { locations: await provider.searchLocations(query), errors: [] as ProviderError[] }; }
-      catch (error) { return { locations: [], errors: [providerError(provider.id, error)] }; }
+      catch (error) {
+        const errors = [providerError(provider.id, error)];
+        const live = this.quoteProviders.find(({ id }) => id === provider.id);
+        if (live?.searchLocations !== undefined) {
+          try { return { locations: await live.searchLocations(query), errors }; }
+          catch (failure) { errors.push(providerError(provider.id, failure)); }
+        }
+        return { locations: [], errors };
+      }
     }));
     return { locations: settled.flatMap(({ locations }) => locations), errors: settled.flatMap(({ errors }) => errors) };
   }
@@ -31,20 +39,25 @@ export class RailSearchService {
     const providers = this.select(providerId);
     const settled = await Promise.all(providers.map(async (provider) => {
       try {
-        let journeys = await provider.searchJourneys(input);
         const quoteProvider = this.quoteProviders.find(({ id }) => id === provider.id);
-        const quoteErrors: ProviderError[] = [];
+        const errors: ProviderError[] = [];
+        let journeys: RailJourney[] = [];
+        try { journeys = await provider.searchJourneys(input); }
+        catch (error) {
+          if (quoteProvider === undefined) throw error;
+          errors.push(providerError(provider.id, error));
+        }
         if (quoteProvider !== undefined) {
           try {
             const quoteInput = journeys[0] === undefined ? input : { ...input, origin: journeys[0].origin.name, destination: journeys[0].destination.name };
             const quotes = await quoteProvider.searchQuotes(quoteInput);
             journeys = merge(journeys, quotes, provider.id, input.date);
           }
-          catch (error) { quoteErrors.push(providerError(provider.id, error, "QUOTE_UNAVAILABLE")); }
+          catch (error) { errors.push(providerError(provider.id, error, "QUOTE_UNAVAILABLE")); }
         }
         return journeys.length === 0
-          ? { journeys, errors: [...quoteErrors, { provider: provider.id, code: "NO_JOURNEYS", message: "No train journeys found" } satisfies ProviderError] }
-          : { journeys, errors: quoteErrors };
+          ? { journeys, errors: [...errors, { provider: provider.id, code: "NO_JOURNEYS", message: "No train journeys found" } satisfies ProviderError] }
+          : { journeys, errors };
       } catch (error) { return { journeys: [], errors: [providerError(provider.id, error)] }; }
     }));
     return {
@@ -69,11 +82,14 @@ function providerError(provider: string, error: unknown, fallback: ProviderError
 }
 
 function merge(journeys: RailJourney[], quotes: RailQuote[], provider: RailJourney["provider"], date: string): RailJourney[] {
-  if (quotes.length === 0) return journeys;
   return quotes.flatMap((quote, index) => {
+    if (!Number.isFinite(Date.parse(quote.departure)) || !Number.isFinite(Date.parse(quote.arrival)) || Date.parse(quote.arrival) < Date.parse(quote.departure)
+      || (quote.price !== null && (!Number.isFinite(quote.price.amount) || quote.price.amount < 0))) {
+      throw new AppError("INCOMPATIBLE_RESPONSE", "Invalid rail quote timing or price", 502);
+    }
     const matched = journeys.find((journey) => exactMatch(journey, quote));
     if (matched !== undefined) return [{ ...matched, available: quote.available, price: quote.price }];
-    if (quote.legs?.length === 0 || quote.legs === undefined) return [];
+    if (quote.legs?.length === 0 || quote.legs === undefined) throw new AppError("INCOMPATIBLE_RESPONSE", "Rail quote has no usable journey legs", 502);
     const first = quote.legs[0]!, last = quote.legs.at(-1)!;
     return [{
       provider,
@@ -94,5 +110,11 @@ function merge(journeys: RailJourney[], quotes: RailQuote[], provider: RailJourn
 }
 
 function exactMatch(journey: RailJourney, quote: RailQuote): boolean {
-  return Date.parse(quote.departure) === Date.parse(journey.departure) && Date.parse(quote.arrival) === Date.parse(journey.arrival) && quote.trainNumbers.length === journey.legs.length && quote.trainNumbers.every((number, index) => number === journey.legs[index]?.trainNumber);
+  const sameStation = (left: string, right: string) => left.replace(/\s+\([^)]*\)$/, "").localeCompare(right.replace(/\s+\([^)]*\)$/, ""), undefined, { sensitivity: "base" }) === 0;
+  return Date.parse(quote.departure) === Date.parse(journey.departure) && Date.parse(quote.arrival) === Date.parse(journey.arrival) && quote.trainNumbers.length === journey.legs.length && quote.trainNumbers.every((number, index) => {
+    const leg = journey.legs[index], quoted = quote.legs?.[index];
+    return number === leg?.trainNumber && (quote.legs === undefined || (quoted !== undefined && leg !== undefined
+      && sameStation(leg.origin.name, quoted.origin.name) && sameStation(leg.destination.name, quoted.destination.name)
+      && Date.parse(leg.departure) === Date.parse(quoted.departure) && Date.parse(leg.arrival) === Date.parse(quoted.arrival)));
+  });
 }

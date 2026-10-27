@@ -21,6 +21,7 @@ export type RailQuote = {
 
 export interface RailQuoteProvider {
   readonly id: RailOperator;
+  searchLocations?(query: string): Promise<Location[]>;
   searchQuotes(input: RailSearchInput): Promise<RailQuote[]>;
 }
 

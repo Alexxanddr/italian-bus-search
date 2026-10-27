@@ -2,6 +2,18 @@
 
 All notable changes will be documented here. Releases follow Semantic Versioning.
 
+## 0.3.4 - 2026-10-27
+
+- Share provider caches and the search budget across stateless MCP exchanges and HTTP adapters.
+- Add compatible offset pagination to bus journeys and location searches.
+- Bound keyed caches, upstream body reads, MCP payloads and NeTEx decoding/redirects.
+- Keep live rail quotes and station discovery available when timetables fail and respect successful empty quotes.
+- Convert XML journey and pattern records during parsing to reduce NeTEx import memory.
+- Correct boarding dates and connections across midnight, Italian date validation, missing prices and station-ID reuse.
+- Drain connections on shutdown, exempt liveness from throttling and emit safe request diagnostics.
+- Derive the MCP runtime version from package metadata and verify private-file exclusions before publishing.
+- Test supported Node 22/24 and current Node 26 in CI.
+
 ## 0.3.3 - 2026-10-27
 
 - Accept Italo NeTEx station IDs directly in live station-board requests.

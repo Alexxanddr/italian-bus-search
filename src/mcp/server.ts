@@ -1,5 +1,6 @@
 import { McpServer, type CallToolResult } from "@modelcontextprotocol/server";
 import * as z from "zod/v4";
+import { readFileSync } from "node:fs";
 
 import { AppError } from "../domain.ts";
 import type { RailLiveProvider, RailQuoteProvider, RailScheduleProvider } from "../rail/provider.ts";
@@ -12,6 +13,8 @@ import type { Provider } from "../providers/provider.ts";
 import { createRateLimiter } from "../rate-limit.ts";
 import { SearchService } from "../search.ts";
 import { defaultResultLimit, maximumResultLimit, validateLocationQuery, validateResultLimit, validateSearchInput, validateServiceDate } from "../validation.ts";
+
+const packageVersion: string = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;
 
 const annotations = {
   readOnlyHint: true,
@@ -91,7 +94,7 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
   const railLiveProviders = dependencies.railLiveProviders ?? [new TrenitaliaLiveProvider(), new ItaloLiveProvider()];
   const limiter = createRateLimiter();
   const consumeSearch = dependencies.consumeSearch ?? (() => limiter("mcp"));
-  const server = new McpServer({ name: "italian-travel-search", version: "0.3.2" });
+  const server = new McpServer({ name: "italian-travel-search", version: packageVersion });
 
   server.registerTool("list_providers", {
     title: "List Italian bus providers",
@@ -133,6 +136,7 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
     inputSchema: z.object({
       query: z.string().describe("Partial city, stop, or location name"),
       provider: z.string().optional().describe("Provider ID; omit to search every provider"),
+      offset: z.number().int().min(0).default(0).describe("Result offset; add limit while truncated is true"),
       limit: z.number().int().min(1).max(maximumResultLimit).default(defaultResultLimit),
     }),
     outputSchema: z.object({
@@ -142,16 +146,16 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
       truncated: z.boolean(),
     }),
     annotations,
-  }, async ({ query, provider, limit }) => {
+  }, async ({ query, provider, offset, limit }) => {
     try {
       consumeSearch();
       const result = await service.searchLocations(validateLocationQuery(query), provider);
       const total = result.locations.length;
       const output = {
-        locations: result.locations.slice(0, validateResultLimit(limit)).map((location) => locationSchema.parse(location)),
+        locations: result.locations.slice(offset, offset + validateResultLimit(limit)).map((location) => locationSchema.parse(location)),
         errors: result.errors,
         total,
-        truncated: total > limit,
+        truncated: total > offset + limit,
       };
       const locations = output.locations.map(({ provider: id, name, city, id: locationId }) =>
         `- [${id}] ${name} (${city}) — ID: ${locationId}`
@@ -172,6 +176,7 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
       adults: z.number().int().min(1).max(9).default(1),
       children: z.number().int().min(0).max(9).default(0),
       provider: z.string().optional().describe("Provider ID; omit to search every provider"),
+      offset: z.number().int().min(0).default(0).describe("Result offset; add limit while truncated is true"),
       limit: z.number().int().min(1).max(maximumResultLimit).default(defaultResultLimit),
     }),
     outputSchema: z.object({
@@ -181,16 +186,16 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
       truncated: z.boolean(),
     }),
     annotations,
-  }, async ({ origin, destination, date, adults, children, provider, limit }) => {
+  }, async ({ origin, destination, date, adults, children, provider, offset, limit }) => {
     try {
       consumeSearch();
       const result = await service.searchJourneys(validateSearchInput({ origin, destination, date, adults, children }), provider);
       const total = result.journeys.length;
       const output = {
-        journeys: result.journeys.slice(0, validateResultLimit(limit)),
+        journeys: result.journeys.slice(offset, offset + validateResultLimit(limit)),
         errors: result.errors,
         total,
-        truncated: total > limit,
+        truncated: total > offset + limit,
       };
       return toolResult(output, [...output.journeys.map(formatJourney), ...formatErrors(output.errors)].join("\n") || "No journeys found.");
     } catch (error) {
@@ -201,14 +206,14 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
   server.registerTool("search_train_locations", {
     title: "Search Italian train stations",
     description: "TRAINS ONLY. Use for every request involving trains or rail to find operator-aware stations. Prefer names across operators; station IDs are operator-specific.",
-    inputSchema: z.object({ query: z.string(), provider: z.enum(["trenitalia", "italo"]).optional(), limit: z.number().int().min(1).max(maximumResultLimit).default(defaultResultLimit) }),
+    inputSchema: z.object({ query: z.string(), provider: z.enum(["trenitalia", "italo"]).optional(), offset: z.number().int().min(0).default(0), limit: z.number().int().min(1).max(maximumResultLimit).default(defaultResultLimit) }),
     outputSchema: z.object({ locations: z.array(locationSchema), errors: z.array(providerErrorSchema), total: z.number().int().nonnegative(), truncated: z.boolean() }), annotations,
-  }, async ({ query, provider, limit }) => {
+  }, async ({ query, provider, offset, limit }) => {
     try {
       consumeSearch();
       const result = await railService.searchLocations(validateLocationQuery(query), provider);
       const total = result.locations.length;
-      const output = { locations: result.locations.slice(0, validateResultLimit(limit)).map((location) => locationSchema.parse(location)), errors: result.errors, total, truncated: total > limit };
+      const output = { locations: result.locations.slice(offset, offset + validateResultLimit(limit)).map((location) => locationSchema.parse(location)), errors: result.errors, total, truncated: total > offset + limit };
       return toolResult(output, [...output.locations.map(({ provider: id, name, id: stationId }) => `- [${id}] ${name} — ID: ${stationId}`), ...formatErrors(output.errors)].join("\n") || "No train stations found.");
     } catch (error) { return toolError(error); }
   });
@@ -239,7 +244,7 @@ export function createBusMcpServer(dependencies: BusMcpDependencies = {}): McpSe
       validateServiceDate(serviceDate);
       const adapter = railLiveProviders.find(({ id }) => id === provider);
       if (adapter === undefined) throw new AppError("LIVE_STATUS_UNAVAILABLE", `${provider} live status is disabled pending verified protocol and authorization`, 503);
-      const output = await adapter.getTrainStatus({ trainNumber, serviceDate, origin });
+      const output = await adapter.getTrainStatus({ trainNumber: validateLocationQuery(trainNumber), serviceDate, origin: validateLocationQuery(origin) });
       return toolResult(output, `${provider} ${trainNumber}: ${output.freshness}${output.delayMinutes === undefined ? "" : `, ${output.delayMinutes} min delay`}`);
     } catch (error) { return toolError(error); }
   });

@@ -8,6 +8,7 @@ import { NetexScheduleProvider, updateNetexDataset } from "../src/rail/netex.ts"
 import { parseNetexStream, type TimetableCache } from "../src/rail/netex-stream.ts";
 import { RailSearchService } from "../src/rail/search.ts";
 import type { RailQuoteProvider } from "../src/rail/provider.ts";
+import { createDefaultRailProviders } from "../src/rail/default.ts";
 
 const input = { origin: "Roma Termini", destination: "Milano Centrale", date: "2027-01-15", adults: 1, children: 0 };
 const source = { source: "Italian NAP NeTEx", publishedAt: "2026-10-25T08:00:00Z", validFrom: "2026-10-01", validThrough: "2030-12-31" };
@@ -75,6 +76,28 @@ test("uses successful booking results as the authoritative priced journey set", 
   assert.equal(result.journeys[0]?.timetableSource.source, "synthetic booking search");
 });
 
+test("keeps live searches independent of a missing timetable and respects empty quotes", async () => {
+  const schedule = await provider("trenitalia");
+  const baseline = await schedule.searchJourneys(input);
+  const journey = baseline[0]!;
+  const quote: RailQuoteProvider = { id: "trenitalia", searchQuotes: async () => [{
+    trainNumbers: journey.legs.map(({ trainNumber }) => trainNumber), departure: journey.departure, arrival: journey.arrival,
+    available: true, price: null, observedAt: source.publishedAt, source: "synthetic", legs: journey.legs,
+  }] };
+  quote.searchLocations = async () => [{ provider: "trenitalia", id: "ROM", name: "Roma Termini", city: "Roma", source: "live" }];
+  const missing = { ...schedule, id: "trenitalia" as const, searchLocations: async () => [], searchJourneys: async () => { throw new AppError("COVERAGE_UNAVAILABLE", "expired", 503); } };
+  const live = await new RailSearchService([missing], [quote]).searchJourneys(input);
+  assert.equal(live.journeys.length, 1);
+  assert.equal(live.errors[0]?.code, "COVERAGE_UNAVAILABLE");
+  const missingLocations = { ...missing, searchLocations: async () => { throw new AppError("PROVIDER_UNAVAILABLE", "missing", 503); } };
+  const locations = await new RailSearchService([missingLocations], [quote]).searchLocations("Roma");
+  assert.equal(locations.locations[0]?.source, "live");
+  assert.equal(locations.errors[0]?.code, "PROVIDER_UNAVAILABLE");
+  const empty = await new RailSearchService([schedule], [{ id: "trenitalia", searchQuotes: async () => [] }]).searchJourneys(input);
+  assert.equal(empty.journeys.length, 0);
+  assert.equal(empty.errors[0]?.code, "NO_JOURNEYS");
+});
+
 test("uses Europe/Rome daylight-saving offsets", async () => {
   const journey = (await (await provider("italo")).searchJourneys({ ...input, date: "2027-07-15" }))[0];
   assert.match(journey?.departure ?? "", /\+02:00$/);
@@ -102,6 +125,40 @@ test("stream parser rejects non-NeTEx input", async () => {
   await assert.rejects(parseNetexStream(Readable.from("<bad/>"), "italo"), (error: unknown) => error instanceof AppError && error.code === "INCOMPATIBLE_RESPONSE");
 });
 
+test("searches by boarding date and connects services across midnight", async () => {
+  const path = `/tmp/night-services-${process.pid}.json.gz`;
+  const cache: TimetableCache = { operator: "italo", source, stops: [{ id: "A", name: "Roma" }, { id: "B", name: "Bologna" }, { id: "C", name: "Milano" }], services: [
+    { id: "night", trainNumber: "1", dates: ["2027-01-14"], stops: [{ ref: "A", departure: 82_800, boarding: true, alighting: false }, { ref: "B", arrival: 88_200, departure: 88_800, boarding: true, alighting: true }, { ref: "C", arrival: 93_600, boarding: false, alighting: true }] },
+    { id: "late", trainNumber: "2", dates: [input.date], stops: [{ ref: "A", departure: 82_800, boarding: true, alighting: false }, { ref: "B", arrival: 88_200, boarding: false, alighting: true }] },
+    { id: "early", trainNumber: "3", dates: ["2027-01-16"], stops: [{ ref: "B", departure: 88_800 - 86400, boarding: true, alighting: false }, { ref: "C", arrival: 93_600 - 86400, boarding: false, alighting: true }] },
+  ] };
+  await writeFile(path, gzipSync(JSON.stringify(cache)));
+  const schedule = await NetexScheduleProvider.fromFile(path, "italo");
+  const early = await schedule.searchJourneys({ ...input, origin: "Bologna", destination: "Milano" });
+  assert.equal(early[0]?.departure, "2027-01-15T00:40:00+01:00");
+  const connection = await schedule.searchJourneys({ ...input, origin: "Roma", destination: "Milano" });
+  assert.equal(connection.length, 1);
+  assert.equal(connection[0]?.arrival, "2027-01-16T02:00:00+01:00");
+  assert.equal(connection[0]?.changes, 1);
+});
+
+test("rejects redirects before contacting a non-CCISS host", async () => {
+  const urls: string[] = [];
+  await assert.rejects(updateNetexDataset(new URL("https://www.cciss.it/start"), "/tmp/not-written.json.gz", "italo", async (input) => {
+    urls.push(String(input));
+    return new Response(null, { status: 302, headers: { location: "https://other.example/feed" } });
+  }), (error: unknown) => error instanceof AppError && error.code === "INVALID_INPUT");
+  assert.equal(urls.length, 1);
+});
+
+test("recovers after the initially missing timetable file is installed", async () => {
+  const path = `/tmp/recovered-cache-${process.pid}-${Date.now()}.json.gz`;
+  const [schedule] = createDefaultRailProviders({ TRENITALIA_NETEX_PATH: path });
+  await assert.rejects(schedule!.searchLocations("Roma"));
+  await writeFile(path, gzipSync(JSON.stringify({ operator: "trenitalia", source, stops: [{ id: "ROM", name: "Roma" }], services: [] })));
+  assert.equal((await schedule!.searchLocations("Roma")).length, 1);
+});
+
 test("stream parser resolves Italian-profile references, UIC calendars and exceptions", async () => {
   const xml = `<PublicationDelivery><PublicationTimestamp>2026-10-25T08:00:00Z</PublicationTimestamp><CompositeFrame><ValidBetween><FromDate>2027-01-01</FromDate><ToDate>2027-01-02</ToDate></ValidBetween></CompositeFrame>
   <StopPlace id="ROM"><Name>Roma Termini</Name></StopPlace><StopPlace id="MIL"><Name>Milano Centrale</Name></StopPlace>
@@ -113,4 +170,7 @@ test("stream parser resolves Italian-profile references, UIC calendars and excep
   assert.deepEqual(cache.services[0]?.dates, ["2027-01-01"]);
   assert.equal(cache.services[0]?.trainNumber, "9920");
   assert.equal(cache.services[0]?.stops[1]?.arrival, 96_300);
+  const bytes = Buffer.from(xml.replace("Roma Termini", "Città"));
+  const split = await parseNetexStream(Readable.from([...bytes].map((byte) => Buffer.from([byte]))), "italo");
+  assert.equal(split.stops[0]?.name, "Città");
 });

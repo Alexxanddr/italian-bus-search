@@ -50,3 +50,33 @@ test("retries a transient polling failure within the bounded operation window", 
 test("fails safely when the anonymous Italo session is unavailable", async () => {
   await assert.rejects(new ItaloQuoteProvider(async () => Response.json({ status: 200 })).searchQuotes(input), (error: unknown) => error instanceof AppError && error.code === "QUOTE_UNAVAILABLE");
 });
+
+test("cleans up sessions on timeout and never prices empty passenger fares as zero", async () => {
+  for (const timedOut of [true, false]) {
+    let cleaned = false;
+    const provider = new ItaloQuoteProvider(async (request, init) => {
+      const url = String(request);
+      if (url.endsWith("/api/login")) return Response.json({}, { headers: { "set-cookie": "BIGSessionToken=synthetic; Path=/" } });
+      if (url.endsWith("stations/list")) return Response.json({ RMT: { name: "Roma Termini" }, MC_: { name: "Milano Centrale" } });
+      if (url.endsWith("/booking") && init?.method === "POST") return Response.json({ operationId: "test", pollAfter: 0, operationTimeout: timedOut ? 0 : 1000 }, { status: 202 });
+      if (url.includes("booking/status")) return Response.json({ trips: [{ direction: "forward", travelSolutions: [{ journeys: [{ serviceProvider: "ITALO", segments: [{ trainNumber: "1", std: "2026-11-10T08:00:00", sta: "2026-11-10T10:00:00", fares: [{ availableCount: 1, paxFares: [] }] }] }] }] }] });
+      if (url.endsWith("working-sessions")) cleaned = true;
+      return Response.json({});
+    });
+    if (timedOut) await assert.rejects(provider.searchQuotes(input), /timed out/);
+    else assert.equal((await provider.searchQuotes(input))[0]?.price, null);
+    assert.equal(cleaned, true);
+  }
+});
+
+test("discovers enabled Italo stations anonymously and preserves their IDs", async () => {
+  const provider = new ItaloQuoteProvider(async (_, init) => {
+    assert.equal(init?.method, "POST");
+    assert.equal(new Headers(init?.headers).has("authorization"), false);
+    return Response.json({ RMT: { name: "Roma Termini", isDisabled: false }, XXX: { name: "Roma Disabled", isDisabled: true } });
+  });
+  const stations = await provider.searchLocations("Roma");
+  assert.equal(stations.length, 1);
+  assert.equal(stations[0]?.id, "IT::StopPlace:RMT");
+  assert.equal(stations[0]?.source, "live");
+});

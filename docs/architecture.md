@@ -147,6 +147,12 @@ All state is process-local:
 
 Failed upstream requests are not cached. There is no persistent storage, shared cache, queue, or background worker.
 
+Provider instances and their bounded caches are shared by HTTP and MCP in one
+process. Each keyed cache holds at most 128 entries; stateless MCP creates only
+the protocol instance per exchange. `upstream.ts` bounds response bodies while
+reading them, before JSON parsing. Timetable files are loaded once per adapter;
+an initial failed load can recover on a later request.
+
 ## Test architecture
 
 Tests cross public seams:
@@ -169,6 +175,6 @@ The automated suite is deterministic and offline. Live checks are separate, low-
 - Rail schedule, quote, and live capabilities are separate. A successful Trenitalia or Italo booking search is authoritative for the returned journey set: exact NeTEx matches retain NAP provenance and additional live solutions are normalized from their reported legs. NeTEx schedules remain the fallback when quoting fails. ViaggiaTreno and verified Italo live reads are independent; Italo quote state is temporary and cleaned up best-effort.
 - NeTEx refresh parses the large XML feeds as streams and atomically writes compact JSON gzip caches; runtime searches never parse XML.
 - Italo In Viaggio is enabled only for standalone train status and boards. Its train status is never joined to a dated schedule because the source cannot prove the service date.
-- Rail routes are direct services from one timetable dataset. Cross-operator routing is not implemented.
+- Rail fallback routes include direct and one-change services from one timetable dataset, with calendar-day boarding and cross-midnight transfers. Live booking searches can return additional multi-change routes. Cross-operator routing is not implemented.
 
 Production-hardening implications are documented in [operations.md](operations.md).

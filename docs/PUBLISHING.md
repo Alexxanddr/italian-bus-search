@@ -23,7 +23,7 @@ Use Semantic Versioning and tags of the form `vX.Y.Z`. Until `1.0.0`, document a
 1. Verify npm account, package ownership, and public repository URL.
 2. Verify package metadata and installation examples.
 3. Update `CHANGELOG.md` and the package version.
-4. Run `npm run check` and `npm pack --dry-run`.
+4. Run `npm run check` and `node scripts/verify-package.mjs`; the latter checks real npm pack-list output for private notes, fixtures, source data and credentials.
 5. Create the signed/annotated Git tag and release notes.
 6. Publish a GitHub Release whose tag exactly matches `v<package version>`. The `publish.yml` workflow validates, tests, publishes through npm Trusted Publishing, then publishes `server.json` to the official MCP Registry.
 

@@ -1,6 +1,6 @@
 import { createServer as createHttpServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { once } from "node:events";
 import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 
 import { createMcpHandler } from "@modelcontextprotocol/server";
 
@@ -15,9 +15,10 @@ import { ItaloLiveProvider } from "./rail/italo-live.ts";
 import type { RailLiveProvider, RailQuoteProvider, RailScheduleProvider } from "./rail/provider.ts";
 import { RailSearchService } from "./rail/search.ts";
 import { TrenitaliaLiveProvider } from "./rail/trenitalia-live.ts";
-import { createBusMcpServer } from "./mcp/server.ts";
+import { createBusMcpServer, type BusMcpDependencies } from "./mcp/server.ts";
 
 type Handler = (request: Request, clientId?: string) => Promise<Response>;
+const loggedRoutes = new Set(["/mcp", "/providers", "/train-providers", "/locations", "/journeys", "/train-locations", "/train-journeys", "/train-status", "/station-board"]);
 
 export function createApp(providers: readonly Provider[] = createDefaultProviders(), railProviders?: readonly RailScheduleProvider[], railLiveProviders: readonly RailLiveProvider[] = [new TrenitaliaLiveProvider(), new ItaloLiveProvider()], railQuoteProviders?: readonly RailQuoteProvider[]): Handler {
   const service = new SearchService(providers);
@@ -25,7 +26,7 @@ export function createApp(providers: readonly Provider[] = createDefaultProvider
   const rateLimit = createRateLimiter();
   return async (request, clientId = "local") => {
     try {
-      rateLimit(clientId);
+      if (new URL(request.url).pathname !== "/health") rateLimit(clientId);
       return await route(request, service, railService, railLiveProviders);
     } catch (error) {
       const appError = error instanceof AppError
@@ -36,29 +37,45 @@ export function createApp(providers: readonly Provider[] = createDefaultProvider
   };
 }
 
-export function createServer() {
-  const app = createApp();
-  const mcp = createMcpApp();
+export function createServer(dependencies: BusMcpDependencies = {}) {
+  const shared = sharedDependencies(dependencies);
+  const app = createApp(shared.providers, shared.railProviders, shared.railLiveProviders, shared.railQuoteProviders);
+  const mcp = createMcpApp(shared);
   const server = createHttpServer(async (request, response) => {
+    const started = Date.now();
     try {
       const webRequest = await toWebRequest(request);
       const result = new URL(webRequest.url).pathname === "/mcp"
         ? await mcp.fetch(webRequest)
         : await app(webRequest, request.socket.remoteAddress);
       await sendWebResponse(response, result);
-    } catch (error) {
-      console.error(error);
-      response.writeHead(500).end("Internal server error");
+      const path = new URL(webRequest.url).pathname;
+      if (path !== "/health") console.error(JSON.stringify({ event: "http_request", method: request.method, route: loggedRoutes.has(path) ? path : "unknown", status: result.status, durationMs: Date.now() - started }));
+    } catch {
+      if (!response.destroyed && !response.headersSent) response.writeHead(500).end("Internal server error");
     }
   });
   server.on("close", () => void mcp.close());
   return server;
 }
 
-export function createMcpApp() {
-  return createMcpHandler(() => createBusMcpServer(), {
-    onerror: (error) => console.error(`MCP transport error: ${error.message}`),
+export function createMcpApp(dependencies: BusMcpDependencies = {}) {
+  const shared = sharedDependencies(dependencies);
+  return createMcpHandler(() => createBusMcpServer(shared), {
+    maxRequestBodySize: 64 * 1024,
+    onerror: () => console.error("MCP transport error"),
   });
+}
+
+function sharedDependencies(dependencies: BusMcpDependencies): BusMcpDependencies {
+  const limiter = createRateLimiter();
+  return {
+    providers: dependencies.providers ?? createDefaultProviders(),
+    railProviders: dependencies.railProviders ?? createDefaultRailProviders(),
+    railQuoteProviders: dependencies.railQuoteProviders ?? (dependencies.railProviders === undefined ? createDefaultRailQuoteProviders() : []),
+    railLiveProviders: dependencies.railLiveProviders ?? [new TrenitaliaLiveProvider(), new ItaloLiveProvider()],
+    consumeSearch: dependencies.consumeSearch ?? (() => limiter("mcp")),
+  };
 }
 
 function toWebRequest(request: IncomingMessage): Request {
@@ -78,10 +95,7 @@ function toWebRequest(request: IncomingMessage): Request {
 async function sendWebResponse(response: ServerResponse, result: Response): Promise<void> {
   response.writeHead(result.status, Object.fromEntries(result.headers));
   if (result.body === null) return void response.end();
-  for await (const chunk of result.body) {
-    if (!response.write(chunk)) await once(response, "drain");
-  }
-  response.end();
+  await pipeline(Readable.fromWeb(result.body as import("node:stream/web").ReadableStream), response);
 }
 
 async function route(request: Request, service: SearchService, railService: RailSearchService, railLiveProviders: readonly RailLiveProvider[]): Promise<Response> {
@@ -104,7 +118,7 @@ async function route(request: Request, service: SearchService, railService: Rail
       adults: optional(url, "adults"),
       children: optional(url, "children"),
     }), optional(url, "provider"));
-    return json(result.journeys.length === 0 && result.errors.length > 0 ? 503 : 200, result);
+    return json(result.journeys.length === 0 && result.errors.some(({ code }) => code !== "NO_JOURNEYS") ? 503 : 200, result);
   }
   if (url.pathname === "/train-locations") {
     const result = await railService.searchLocations(validateLocationQuery(optional(url, "query")), optional(url, "provider"));
@@ -112,7 +126,7 @@ async function route(request: Request, service: SearchService, railService: Rail
   }
   if (url.pathname === "/train-journeys") {
     const result = await railService.searchJourneys(validateSearchInput({ origin: optional(url, "origin"), destination: optional(url, "destination"), date: optional(url, "date"), adults: optional(url, "adults"), children: optional(url, "children") }), optional(url, "provider"));
-    return json(result.journeys.length === 0 && result.errors.length > 0 ? 503 : 200, result);
+    return json(result.journeys.length === 0 && result.errors.some(({ code }) => code !== "NO_JOURNEYS") ? 503 : 200, result);
   }
   if (url.pathname === "/train-status") {
     const provider = liveProvider(railLiveProviders, optional(url, "provider"));

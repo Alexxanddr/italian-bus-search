@@ -5,9 +5,11 @@ import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { createBusMcpServer } from "./server.ts";
 
 const handle = serveStdio(() => createBusMcpServer(), {
-  onerror: (error) => console.error(`MCP transport error: ${error.message}`),
+  onerror: () => console.error("MCP transport error"),
 });
 
-process.once("SIGINT", () => {
-  void handle.close().finally(() => process.exit(0));
+for (const signal of ["SIGINT", "SIGTERM"] as const) process.once(signal, () => {
+  const deadline = setTimeout(() => process.exit(1), 5_000);
+  deadline.unref();
+  void handle.close().finally(() => { clearTimeout(deadline); process.exit(0); });
 });

@@ -1,5 +1,6 @@
 import { AppError, type RailLiveStatus, type StationBoard } from "../domain.ts";
 import type { RailLiveProvider } from "./provider.ts";
+import { responseText } from "../upstream.ts";
 
 const base = "http://www.viaggiatreno.it/infomobilita/resteasy/viaggiatreno/";
 
@@ -37,9 +38,7 @@ export class TrenitaliaLiveProvider implements RailLiveProvider {
     if (response.status === 204) throw new AppError("TRAIN_NOT_FOUND", "ViaggiaTreno record was not found", 404);
     if (response.status === 429) throw new AppError("RATE_LIMITED", "ViaggiaTreno rate limit reached", 429);
     if (!response.ok) throw new AppError("LIVE_STATUS_UNAVAILABLE", `ViaggiaTreno returned HTTP ${response.status}`, 503);
-    const text = await response.text();
-    if (text.length > 2_000_000) throw new AppError("INCOMPATIBLE_RESPONSE", "ViaggiaTreno response is too large", 502);
-    return text;
+    return responseText(response, "ViaggiaTreno", 2_000_000);
   }
 }
 

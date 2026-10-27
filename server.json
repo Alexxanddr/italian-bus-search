@@ -2,18 +2,18 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Alexxanddr/italian-travel-search",
   "title": "Italian Travel Search MCP Server",
-  "description": "Read-only Italian bus searches and local NeTEx rail schedules.",
+  "description": "Italian bus and train searches with live prices, timetable fallback and status.",
   "repository": {
     "url": "https://github.com/Alexxanddr/italian-travel-search",
     "source": "github"
   },
-  "version": "0.3.3",
+  "version": "0.3.4",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "italian-travel-search",
-      "version": "0.3.3",
+      "version": "0.3.4",
       "transport": {
         "type": "stdio"
       }

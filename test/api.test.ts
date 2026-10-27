@@ -73,13 +73,20 @@ test("lists train providers and configured price/live capabilities separately fr
 test("rate limits a client after 60 requests per minute", async () => {
   const app = createApp([provider]);
   for (let request = 0; request < 60; request += 1) {
-    assert.equal((await app(new Request("http://localhost/health"), "client")).status, 200);
+    assert.equal((await app(new Request("http://localhost/providers"), "client")).status, 200);
   }
-  const response = await app(new Request("http://localhost/health"), "client");
+  const response = await app(new Request("http://localhost/providers"), "client");
   assert.equal(response.status, 429);
   assert.deepEqual(await response.json(), {
     error: { code: "RATE_LIMITED", message: "Rate limit exceeded" },
   });
+  assert.equal((await app(new Request("http://localhost/health"), "client")).status, 200);
+});
+
+test("returns HTTP 200 for a successful empty journey search", async () => {
+  const response = await createApp([provider])(new Request("http://localhost/journeys?origin=Roma&destination=Cosenza&date=2027-01-15"));
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json() as { journeys: unknown[] }).journeys, []);
 });
 
 test("exposes every rail capability through HTTP before MCP", async () => {

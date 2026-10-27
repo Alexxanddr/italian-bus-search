@@ -24,5 +24,6 @@ test("normalizes date-unverified train status and station boards", async () => {
 
 test("distinguishes train not found and incompatible responses", async () => {
   await assert.rejects(new ItaloLiveProvider(async () => new Response('{"IsEmpty":true}')).getTrainStatus({ trainNumber: "1", serviceDate: "2026-11-10", origin: "RMT" }), (error: unknown) => error instanceof AppError && error.code === "TRAIN_NOT_FOUND");
+  await assert.rejects(new ItaloLiveProvider(async () => Response.json({ IsEmpty: false, TrainSchedule: null })).getTrainStatus({ trainNumber: "1", serviceDate: "2026-11-10", origin: "RMT" }), (error: unknown) => error instanceof AppError && error.code === "TRAIN_NOT_FOUND");
   await assert.rejects(new ItaloLiveProvider(async () => new Response("bad")).getStationBoard({ stationId: "RMT", stationName: "Roma", direction: "departures" }), (error: unknown) => error instanceof AppError && error.code === "INCOMPATIBLE_RESPONSE");
 });

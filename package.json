@@ -1,8 +1,8 @@
 {
   "name": "italian-travel-search",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "mcpName": "io.github.Alexxanddr/italian-travel-search",
-  "description": "Read-only Italian bus search and local NeTEx rail timetable MCP server",
+  "description": "Read-only Italian bus and train search with live prices, NeTEx fallback and MCP tools",
   "keywords": [
     "italian",
     "bus",

@@ -11,7 +11,7 @@ class FileScheduleProvider implements RailScheduleProvider {
   constructor(id: RailOperator, path: string) { this.id = id; this.#path = path; }
   async searchLocations(query: string) { return (await this.provider()).searchLocations(query); }
   async searchJourneys(input: Parameters<RailScheduleProvider["searchJourneys"]>[0]) { return (await this.provider()).searchJourneys(input); }
-  private provider() { return this.#provider ??= NetexScheduleProvider.fromFile(this.#path, this.id); }
+  private provider() { return this.#provider ??= NetexScheduleProvider.fromFile(this.#path, this.id).catch((error: unknown) => { this.#provider = undefined; throw error; }); }
 }
 
 export function createDefaultRailQuoteProviders(): readonly RailQuoteProvider[] { return [new TrenitaliaQuoteProvider(), new ItaloQuoteProvider()]; }

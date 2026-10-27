@@ -13,7 +13,7 @@ This repository is an unofficial, read-only aggregator for Italian coach journey
 ## Invariants
 
 - The application is read-only: search locations and journeys only.
-- Login, booking, seat selection, payment, and CAPTCHA flows are outside scope.
+- Customer login, seat selection, payment, and CAPTCHA flows are outside scope. Italo's authorized anonymous technical session and temporary quote-planning resource are permitted and require best-effort cleanup.
 - Every provider satisfies `src/providers/provider.ts`; callers depend only on that interface.
 - Preserve successful provider data when another provider fails.
 - Validate every upstream response before normalizing it.

@@ -6,7 +6,7 @@
 
 An unofficial, read-only TypeScript service for Italian coach searches and local NeTEx rail timetables through HTTP and Model Context Protocol interfaces.
 
-The project hides provider-specific station catalogs, request formats, fare structures, and multi-leg responses behind one shared application core. It never performs login, booking, seat selection, or payment operations.
+The project hides provider-specific station catalogs, request formats, fare structures, and multi-leg responses behind one shared application core. Italo pricing initializes an anonymous technical session and temporary planning resource; customer login, fare selection, seat reservation, and payment are excluded.
 
 > [!IMPORTANT]
 > This project is not affiliated with or endorsed by Itabus, Autoservizi Salemi, Autolinee Federico, MarinoBus, or FlixBus. Provider names and trademarks belong to their owners. Before enabling a live adapter, confirm that your use complies with the provider's terms, applicable law, and any required authorization. This repository does not grant data-extraction or redistribution rights.
@@ -38,7 +38,7 @@ The project hides provider-specific station catalogs, request formats, fare stru
 
 Public provider behavior and limitations are documented in the bus and train API guides below.
 
-Rail schedule support uses compact local caches refreshed from Italian NAP NeTEx with `npm run build && npm run rail:update`. Optional `TRENITALIA_NETEX_PATH` and `ITALO_NETEX_PATH` variables override their paths. Trenitalia and Italo prices, ViaggiaTreno live data, and Italo live boards/standalone status are enabled. Italo quote searches use an anonymous temporary planning session and clean it up best-effort.
+Rail schedule support uses compact local caches refreshed from Italian NAP NeTEx with `npm run build && npm run rail:update`. Optional `TRENITALIA_NETEX_PATH` and `ITALO_NETEX_PATH` variables override their paths. Live station discovery and prices remain available when a timetable cannot be loaded, with explicit dataset errors. Trenitalia and Italo prices, ViaggiaTreno live data, and Italo live boards/standalone status are enabled. Italo quote searches use an anonymous temporary planning session and clean it up best-effort.
 
 ## Requirements
 
@@ -113,7 +113,7 @@ npm run build
 npm run mcp:built
 ```
 
-The existing `list_providers`, `search_locations`, and `search_journeys` bus tools are unchanged. Rail adds `list_train_providers`, `search_train_locations`, `search_train_journeys`, `get_train_status`, and `get_station_board`. Trenitalia and Italo price and live adapters are enabled; Italo live tools retain date-unverified semantics.
+The existing `list_providers`, `search_locations`, and `search_journeys` bus tools remain compatible. Location and journey searches accept optional `offset`/`limit`; increment `offset` by `limit` until `truncated` is false to retrieve every page. Rail adds `list_train_providers`, `search_train_locations`, `search_train_journeys`, `get_train_status`, and `get_station_board`. Trenitalia and Italo price and live adapters are enabled; Italo live tools retain date-unverified semantics.
 
 ```json
 {

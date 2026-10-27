@@ -4,18 +4,24 @@ import { AppError } from "../domain.ts";
 import type { RailOperator } from "./provider.ts";
 
 type Node = { name: string; attrs: Record<string, string>; text: string; children: Node[] };
+type Pattern = { line: string; points: Array<{ id: string; stop: string; boarding: boolean; alighting: boolean }> };
+type RawService = { id: string; pattern: string; publicCode: string; name: string; days: string[]; times: Array<{ point: string; arrival: string; departure: string; arrivalOffset: string; departureOffset: string }> };
 export type CachedStop = { id: string; name: string };
 export type CachedService = { id: string; trainNumber: string; dates: string[]; stops: Array<{ ref: string; arrival?: number; departure?: number; boarding: boolean; alighting: boolean }> };
 export type TimetableCache = { operator: RailOperator; source: { source: string; publishedAt: string; validFrom: string; validThrough: string }; stops: CachedStop[]; services: CachedService[] };
 
 const targets = new Set(["PublicationTimestamp", "StopPlace", "PassengerStopAssignment", "ServiceJourneyPattern", "Line", "DayType", "DayTypeAssignment", "UicOperatingPeriod", "OperatingPeriod", "OperatingDay", "ServiceJourney", "ValidBetween"]);
+const fields = new Set(["Name", "PublicCode", "PublicationTimestamp", "FromDate", "ToDate", "ValidDayBits", "ScheduledStopPointRef", "StopPlaceRef", "LineRef", "ServiceJourneyPatternRef", "StopPointInJourneyPattern", "DayTypeRef", "OperatingPeriodRef", "Date", "IsAvailable", "isAvailable", "TimetabledPassingTime", "StopPointInJourneyPatternRef", "ArrivalTime", "ArrivalDayOffset", "DepartureTime", "DepartureDayOffset", "ForBoarding", "ForAlighting"]);
 
 export async function parseNetexStream(stream: Readable, operator: RailOperator): Promise<TimetableCache> {
   const captured: Node[] = [], stack: Node[] = [];
+  const patterns = new Map<string, Pattern>(), rawServices: RawService[] = [];
   let captureDepth = 0, elementDepth = 0;
   const parser = new SaxesParser({ xmlns: false });
+  parser.on("doctype", () => incompatible("NeTEx document types are unsupported"));
   parser.on("opentag", (tag) => {
     elementDepth += 1;
+    if (elementDepth > 128) incompatible("NeTEx nesting is too deep");
     const name = tag.name.includes(":") ? tag.name.slice(tag.name.indexOf(":") + 1) : tag.name;
     if (captureDepth === 0 && targets.has(name)) captureDepth = elementDepth;
     if (captureDepth !== 0) {
@@ -29,12 +35,27 @@ export async function parseNetexStream(stream: Readable, operator: RailOperator)
   parser.on("closetag", () => {
     if (captureDepth !== 0) {
       const node = stack.pop()!;
-      if (elementDepth === captureDepth) { captured.push(node); captureDepth = 0; }
+      if (elementDepth === captureDepth) {
+        if (node.name === "ServiceJourneyPattern") {
+          patterns.set(requiredAttr(node, "id"), { line: requiredRef(node, "LineRef"), points: descendants(node, "StopPointInJourneyPattern").sort((a, b) => Number(a.attrs.order) - Number(b.attrs.order)).map((point) => ({ id: requiredAttr(point, "id"), stop: requiredRef(point, "ScheduledStopPointRef"), boarding: bool(point, "ForBoarding"), alighting: bool(point, "ForAlighting") })) });
+        } else if (node.name === "ServiceJourney") {
+          rawServices.push({ id: requiredAttr(node, "id"), pattern: requiredRef(node, "ServiceJourneyPatternRef"), publicCode: optionalText(node, "PublicCode"), name: optionalText(node, "Name"), days: descendants(node, "DayTypeRef").map((value) => value.attrs.ref).filter(Boolean),
+            times: descendants(node, "TimetabledPassingTime").map((time) => ({ point: requiredRef(time, "StopPointInJourneyPatternRef"), arrival: optionalText(time, "ArrivalTime"), departure: optionalText(time, "DepartureTime"), arrivalOffset: optionalText(time, "ArrivalDayOffset"), departureOffset: optionalText(time, "DepartureDayOffset") })),
+          });
+        } else captured.push(compact(node));
+        captureDepth = 0;
+      }
     }
     elementDepth -= 1;
   });
   parser.on("error", () => { throw new AppError("INCOMPATIBLE_RESPONSE", "Invalid NeTEx XML", 502); });
-  for await (const chunk of stream) parser.write(Buffer.isBuffer(chunk) ? chunk.toString("utf8") : String(chunk));
+  stream.setEncoding("utf8");
+  let decodedBytes = 0;
+  for await (const chunk of stream) {
+    decodedBytes += Buffer.byteLength(chunk);
+    if (decodedBytes > 512 * 1024 * 1024) { stream.destroy(); incompatible("Decompressed NeTEx dataset is too large"); }
+    parser.write(String(chunk));
+  }
   parser.close();
 
   const all = captured.flatMap((node) => [node, ...descendants(node, "*")]);
@@ -48,7 +69,6 @@ export async function parseNetexStream(stream: Readable, operator: RailOperator)
   }));
   const assignments = new Map(all.filter(({ name }) => name === "PassengerStopAssignment").map((node) => [requiredRef(node, "ScheduledStopPointRef"), requiredRef(node, "StopPlaceRef")]));
   const lines = new Map(all.filter(({ name }) => name === "Line").map((node) => [requiredAttr(node, "id"), optionalText(node, "PublicCode")]));
-  const patterns = new Map(all.filter(({ name }) => name === "ServiceJourneyPattern").map((node) => [requiredAttr(node, "id"), { line: requiredRef(node, "LineRef"), points: descendants(node, "StopPointInJourneyPattern").sort((a, b) => Number(a.attrs.order) - Number(b.attrs.order)).map((point) => ({ id: requiredAttr(point, "id"), stop: requiredRef(point, "ScheduledStopPointRef"), boarding: bool(point, "ForBoarding"), alighting: bool(point, "ForAlighting") })) }]));
   const periods = new Map(all.filter(({ name }) => name === "UicOperatingPeriod").map((node) => {
     const [from, to] = range(node), bits = requiredText(node, "ValidDayBits"), dates = enumerate(from, to).filter((_, index) => bits[index] === "1");
     if (bits.length !== enumerate(from, to).length) incompatible("Invalid UIC calendar bits");
@@ -64,28 +84,37 @@ export async function parseNetexStream(stream: Readable, operator: RailOperator)
     dayPeriods.set(day, dates);
   }
   const services: CachedService[] = [];
-  for (const node of all.filter(({ name }) => name === "ServiceJourney")) {
-    const pattern = patterns.get(requiredRef(node, "ServiceJourneyPatternRef"));
+  for (const service of rawServices) {
+    const pattern = patterns.get(service.pattern);
     if (pattern === undefined) incompatible("Unresolved journey pattern");
-    const passing = new Map(descendants(node, "TimetabledPassingTime").map((time) => [requiredRef(time, "StopPointInJourneyPatternRef"), time]));
-    const dayRefs = descendants(node, "DayTypeRef").map((value) => value.attrs.ref).filter(Boolean);
-    const dates = [...new Set(dayRefs.flatMap((ref) => [...(dayPeriods.get(ref) ?? [])]))].sort();
+    const passing = new Map(service.times.map((time) => [time.point, time]));
+    const dates = [...new Set(service.days.flatMap((ref) => [...(dayPeriods.get(ref) ?? [])]))].sort();
     if (dates.length === 0) continue;
     let prior = 0;
     const stops = pattern.points.map((point) => {
       const time = passing.get(point.id); if (time === undefined) incompatible("Missing passing time");
-      const arrival = seconds(time, "ArrivalTime", "ArrivalDayOffset", prior); if (arrival !== undefined) prior = arrival;
-      const departure = seconds(time, "DepartureTime", "DepartureDayOffset", prior); if (departure !== undefined) prior = departure;
+      const arrival = seconds(time.arrival, time.arrivalOffset, prior); if (arrival !== undefined) prior = arrival;
+      const departure = seconds(time.departure, time.departureOffset, prior); if (departure !== undefined) prior = departure;
       const ref = assignments.get(point.stop); if (ref === undefined || !stations.has(ref)) incompatible(`Unresolved stop assignment: ${point.stop} -> ${ref ?? "missing"}`);
       return { ref, arrival, departure, boarding: point.boarding, alighting: point.alighting };
     });
     const lineCode = lines.get(pattern.line) ?? "";
     if (operator === "italo" && !/^\d+(?:_#\d+)?$/.test(lineCode)) continue;
-    services.push({ id: requiredAttr(node, "id"), trainNumber: operator === "italo" ? lineCode.replace(/_#\d+$/, "") : optionalText(node, "PublicCode") || optionalText(node, "Name") || lineCode || requiredAttr(node, "id"), dates, stops });
+    services.push({ id: service.id, trainNumber: operator === "italo" ? lineCode.replace(/_#\d+$/, "") : service.publicCode || service.name || lineCode || service.id, dates, stops });
   }
   if (stations.size === 0 || services.length === 0) incompatible("NeTEx dataset has no usable rail services");
   const validFrom = ranges.map(([from]) => from).sort()[0]!, validThrough = ranges.map(([, to]) => to).sort().at(-1)!;
   return { operator, source: { source: "Italian NAP NeTEx", publishedAt: publication, validFrom, validThrough }, stops: [...stations].map(([id, name]) => ({ id, name })), services };
+}
+
+function compact(node: Node): Node {
+  return { name: node.name, text: node.name === "Name" ? nodeText(node).trim() : node.text.trim(),
+    attrs: Object.fromEntries(Object.entries(node.attrs).filter(([key]) => key === "id" || key === "ref" || key === "order")),
+    children: node.name === "Name" ? [] : node.children.flatMap((child) => {
+      const value = compact(child);
+      return fields.has(child.name) ? [value] : value.children;
+    }),
+  };
 }
 
 function descendants(node: Node, name: string): Node[] { return node.children.flatMap((value) => [...(name === "*" || value.name === name ? [value] : []), ...descendants(value, name)]); }
@@ -97,5 +126,5 @@ function requiredRef(node: Node, name: string) { const value = descendants(node,
 function range(node: Node): [string, string] { return [requiredText(node, "FromDate").slice(0, 10), requiredText(node, "ToDate").slice(0, 10)]; }
 function enumerate(from: string, to: string) { const values: string[] = []; for (let date = new Date(`${from}T00:00:00Z`); date <= new Date(`${to}T00:00:00Z`); date.setUTCDate(date.getUTCDate() + 1)) values.push(date.toISOString().slice(0, 10)); return values; }
 function bool(node: Node, name: string) { const value = optionalText(node, name); return value === "" || value === "true" || value === "1"; }
-function seconds(node: Node, clockName: string, offsetName: string, prior: number) { const clock = optionalText(node, clockName); if (!clock) return undefined; const match = /^(\d{2}):([0-5]\d):([0-5]\d)$/.exec(clock); if (!match) incompatible("Invalid passing time"); let value = Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]) + Number(optionalText(node, offsetName) || Math.floor(prior / 86400)) * 86400; if (!optionalText(node, offsetName) && value < prior) value += 86400; return value; }
+function seconds(clock: string, offset: string, prior: number) { if (!clock) return undefined; const match = /^(\d{2}):([0-5]\d):([0-5]\d)$/.exec(clock); if (!match) incompatible("Invalid passing time"); let value = Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]) + Number(offset || Math.floor(prior / 86400)) * 86400; if (!offset && value < prior) value += 86400; return value; }
 function incompatible(message: string): never { throw new AppError("INCOMPATIBLE_RESPONSE", message, 502); }

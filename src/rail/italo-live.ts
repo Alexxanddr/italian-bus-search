@@ -1,5 +1,6 @@
 import { AppError, type RailLiveStatus, type StationBoard } from "../domain.ts";
 import type { RailLiveProvider } from "./provider.ts";
+import { responseJson } from "../upstream.ts";
 
 const base = "https://italoinviaggio.italotreno.com/api/";
 
@@ -10,8 +11,8 @@ export class ItaloLiveProvider implements RailLiveProvider {
 
   async getTrainStatus({ trainNumber }: { trainNumber: string; serviceDate: string; origin: string }): Promise<RailLiveStatus> {
     const data = object(await this.request(`RicercaTrenoService?TrainNumber=${encodeURIComponent(trainNumber)}`));
-    if (data.IsEmpty === true) throw new AppError("TRAIN_NOT_FOUND", `Italo train ${trainNumber} was not found`, 404);
-    const schedule = object(data.TrainSchedule), disruption = data.TrainSchedule === null ? {} : optionalObject(schedule.Distruption);
+    if (data.IsEmpty === true || data.TrainSchedule === null) throw new AppError("TRAIN_NOT_FOUND", `Italo train ${trainNumber} was not found`, 404);
+    const schedule = object(data.TrainSchedule), disruption = optionalObject(schedule.Distruption);
     return { observedAt: new Date().toISOString(), source: "Italo In Viaggio", freshness: "date_unverified", delayMinutes: optionalNumber(disruption.DelayAmount) };
   }
 
@@ -30,9 +31,7 @@ export class ItaloLiveProvider implements RailLiveProvider {
     catch { throw new AppError("LIVE_STATUS_UNAVAILABLE", "Italo live request failed", 503); }
     if (response.status === 429) throw new AppError("RATE_LIMITED", "Italo live rate limit reached", 429);
     if (!response.ok) throw new AppError("LIVE_STATUS_UNAVAILABLE", `Italo live returned HTTP ${response.status}`, 503);
-    const text = await response.text();
-    if (text.length > 1_000_000) throw new AppError("INCOMPATIBLE_RESPONSE", "Italo live response is too large", 502);
-    try { return JSON.parse(text); } catch { throw new AppError("INCOMPATIBLE_RESPONSE", "Invalid Italo live response", 502); }
+    return responseJson(response, "Italo live", 1_000_000);
   }
 }
 

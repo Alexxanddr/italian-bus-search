@@ -1,17 +1,32 @@
-import { AppError, type RailSearchInput } from "../domain.ts";
+import { AppError, type Location, type RailSearchInput } from "../domain.ts";
 import type { RailQuote, RailQuoteProvider } from "./provider.ts";
+import { TtlCache } from "../cache.ts";
+import { responseJson } from "../upstream.ts";
 
 const base = "https://www.lefrecce.it/Channels.Website.BFF.WEB/website";
 
 export class TrenitaliaQuoteProvider implements RailQuoteProvider {
   readonly id = "trenitalia" as const;
   readonly #fetch: typeof fetch;
-  readonly #cache = new Map<string, { expires: number; value: RailQuote[] }>();
+  readonly #cache = new TtlCache<RailQuote[]>(60_000);
+  readonly #locations = new TtlCache<Location[]>(3_600_000);
   constructor(fetcher: typeof fetch = fetch) { this.#fetch = fetcher; }
+
+  async searchLocations(query: string): Promise<Location[]> {
+    const cached = this.#locations.get(query);
+    if (cached !== undefined) return cached;
+    const locations = array(await this.request(`/locations/search?${new URLSearchParams({ name: stripLocalizedName(query), limit: "50" })}`)).map((raw) => {
+      const row = object(raw), name = requiredString(row.name);
+      if (typeof row.id !== "number" || !Number.isSafeInteger(row.id)) throw new AppError("INCOMPATIBLE_RESPONSE", "Invalid Trenitalia station ID", 502);
+      return { provider: this.id, id: `IT::StopPlace:otherTRENITALIA:${row.id}`, name, city: name, source: "live" as const, observedAt: new Date().toISOString() };
+    });
+    this.#locations.set(query, locations);
+    return locations;
+  }
 
   async searchQuotes(input: RailSearchInput): Promise<RailQuote[]> {
     const key = JSON.stringify(input), cached = this.#cache.get(key);
-    if (cached !== undefined && cached.expires > Date.now()) return cached.value;
+    if (cached !== undefined) return cached;
     const [origin, destination] = await Promise.all([this.location(input.origin), this.location(input.destination)]);
     const quotes: RailQuote[] = [], seen = new Set<string>(), observedAt = new Date().toISOString();
     for (let offset = 0; offset < 100; offset += 10) {
@@ -21,8 +36,12 @@ export class TrenitaliaQuoteProvider implements RailQuoteProvider {
         advancedSearchRequest: { bestFare: false },
       }));
       const solutions = array(data.solutions);
+      let nextDay = false;
       for (const entry of solutions) {
         const solution = object(object(entry).solution), id = optionalString(solution.id) ?? `${solution.departureTime}-${solution.arrivalTime}`;
+        const departure = requiredString(solution.departureTime);
+        if (departure.slice(0, 10) > input.date) { nextDay = true; continue; }
+        if (departure.slice(0, 10) < input.date) continue;
         if (seen.has(id)) continue;
         seen.add(id);
         const status = optionalString(solution.status), price = optionalObject(solution.price), amount = optionalNumber(price.amount), currency = normalizeCurrency(optionalString(price.currency));
@@ -45,13 +64,16 @@ export class TrenitaliaQuoteProvider implements RailQuoteProvider {
           })),
         });
       }
-      if (solutions.length < 10) break;
+      if (solutions.length < 10 || nextDay) break;
+      if (offset === 90) throw new AppError("QUOTE_UNAVAILABLE", "Trenitalia quote result exceeded the pagination safety limit", 503);
     }
-    this.#cache.set(key, { expires: Date.now() + 60_000, value: quotes });
+    this.#cache.set(key, quotes);
     return quotes;
   }
 
   private async location(name: string): Promise<number> {
+    const embedded = /^IT::StopPlace:(?:otherTRENITALIA:)?(\d+)$/.exec(name)?.[1];
+    if (embedded !== undefined && Number.isSafeInteger(Number(embedded))) return Number(embedded);
     const data = array(await this.request(`/locations/search?${new URLSearchParams({ name: stripLocalizedName(name), limit: "10" })}`));
     const matches = data.map(object).filter((item) => optionalString(item.name)?.localeCompare(stripLocalizedName(name), undefined, { sensitivity: "accent" }) === 0);
     if (matches.length !== 1 || typeof matches[0]?.id !== "number") throw new AppError(matches.length > 1 ? "AMBIGUOUS_LOCATION" : "UNKNOWN_LOCATION", `Trenitalia location ${name} was not resolved exactly`, 400);
@@ -64,9 +86,7 @@ export class TrenitaliaQuoteProvider implements RailQuoteProvider {
     catch { throw new AppError("QUOTE_UNAVAILABLE", "Trenitalia quote request failed", 503); }
     if (response.status === 429) throw new AppError("RATE_LIMITED", "Trenitalia quote rate limit reached", 429);
     if (!response.ok) throw new AppError("QUOTE_UNAVAILABLE", `Trenitalia quote returned HTTP ${response.status}`, 503);
-    const text = await response.text();
-    if (text.length > 2_000_000) throw new AppError("INCOMPATIBLE_RESPONSE", "Trenitalia quote response is too large", 502);
-    try { return JSON.parse(text); } catch { throw new AppError("INCOMPATIBLE_RESPONSE", "Invalid Trenitalia quote response", 502); }
+    return responseJson(response, "Trenitalia quote", 2_000_000);
   }
 }
 

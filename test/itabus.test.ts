@@ -34,6 +34,14 @@ test("rejects an incompatible Itabus response", () => {
   );
 });
 
+test("keeps missing Itabus prices nullable and rejects invalid datetimes", async () => {
+  const fixture = JSON.parse(await readFile(new URL("fixtures/itabus-travels.json", import.meta.url), "utf8"));
+  fixture.data.outbound.routes[0].rates = { price: null };
+  assert.equal(parseItabusJourneys(fixture)[0]?.price, null);
+  fixture.data.outbound.routes[0].departure_timestamp = "not-a-date";
+  assert.throws(() => parseItabusJourneys(fixture), /duration is invalid/);
+});
+
 test("searches live locations and journeys through an injected HTTP client", async () => {
   const fixture = JSON.parse(
     await readFile(new URL("fixtures/itabus-travels.json", import.meta.url), "utf8"),

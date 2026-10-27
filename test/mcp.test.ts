@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
@@ -67,6 +68,47 @@ test("serves MCP over stateless streamable HTTP alongside the REST API", async (
 
   const tools = await client.listTools();
   assert.equal(tools.tools.length, 8);
+  assert.equal(client.getServerVersion()?.version, JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version);
+});
+
+test("enforces one search budget across stateless HTTP exchanges", async (context) => {
+  const calls = { locations: 0, journeys: 0 };
+  const app = createMcpApp({ providers: [workingProvider(calls)], railProviders: [] });
+  const client = new Client({ name: "shared-budget", version: "1.0.0" });
+  await client.connect(new StreamableHTTPClientTransport(new URL("http://localhost/mcp"), {
+    fetch: (input, init) => app.fetch(new Request(input, init)),
+  }));
+  context.after(async () => { await client.close(); await app.close(); });
+  for (let index = 0; index < 60; index += 1) {
+    assert.notEqual((await client.callTool({ name: "search_locations", arguments: { query: "Roma" } })).isError, true);
+  }
+  const limited = await client.callTool({ name: "search_locations", arguments: { query: "Roma" } });
+  assert.equal(limited.isError, true);
+  assert.equal(calls.locations, 60);
+});
+
+test("paginates bus journeys without dropping results beyond fifty", async (context) => {
+  const provider = workingProvider({ locations: 0, journeys: 0 });
+  provider.searchJourneys = async () => Array.from({ length: 55 }, (_, index) => ({ ...journey, tripId: String(index) }));
+  const { client, server } = await connect([provider]);
+  context.after(async () => { await client.close(); await server.close(); });
+  const args = { origin: "Roma", destination: "Milano", date: futureDate, limit: 50 };
+  const first = (await client.callTool({ name: "search_journeys", arguments: args })).structuredContent as { journeys: Array<{ tripId: string }>; truncated: boolean; total: number };
+  const last = (await client.callTool({ name: "search_journeys", arguments: { ...args, offset: 50 } })).structuredContent as typeof first;
+  assert.equal(first.total, 55);
+  assert.equal(first.truncated, true);
+  assert.equal(last.truncated, false);
+  assert.equal(new Set([...first.journeys, ...last.journeys].map(({ tripId }) => tripId)).size, 55);
+});
+
+test("rejects oversized MCP bodies before creating expensive provider work", async () => {
+  const app = createMcpApp({ providers: [], railProviders: [] });
+  try {
+    const response = await app.fetch(new Request("http://localhost/mcp", {
+      method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream" }, body: " ".repeat(65_537),
+    }));
+    assert.equal(response.status, 413);
+  } finally { await app.close(); }
 });
 
 test("discovers all read-only MCP tools and lists bus providers without network calls", async (context) => {

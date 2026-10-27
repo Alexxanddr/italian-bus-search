@@ -1,5 +1,7 @@
 import { AppError, type Journey, type Location, type SearchInput } from "../domain.ts";
 import type { Provider } from "./provider.ts";
+import { TtlCache } from "../cache.ts";
+import { responseJson } from "../upstream.ts";
 
 const timeoutMs = 5_000;
 const locationCacheMs = 60 * 60_000;
@@ -132,8 +134,8 @@ export class AlbatrossProvider implements Provider {
   private readonly fetcher: Fetcher;
   private localitiesCache?: { expiresAt: number; value: Locality[] };
   private fareCategoriesCache?: { expiresAt: number; value: unknown[] };
-  private readonly destinationsCache = new Map<string, { expiresAt: number; value: Locality[] }>();
-  private readonly journeysCache = new Map<string, { expiresAt: number; value: Journey[] }>();
+  private readonly destinationsCache = new TtlCache<Locality[]>(locationCacheMs);
+  private readonly journeysCache = new TtlCache<Journey[]>(journeyCacheMs);
 
   constructor(config: ProviderConfig, fetcher: Fetcher = fetch) {
     this.config = config;
@@ -166,7 +168,7 @@ export class AlbatrossProvider implements Provider {
     const url = `${this.config.baseUrl}search/s/${origin.id}/${destination.id}/${input.date}/${input.date}?${parameters}`;
     const key = `${url}:${JSON.stringify(passengers)}`;
     const cached = this.journeysCache.get(key);
-    if (cached !== undefined && cached.expiresAt > Date.now()) return cached.value;
+    if (cached !== undefined) return cached;
     const journeys = parseAlbatrossJourneys(
       await this.getJson(url, { method: "POST", body: JSON.stringify(passengers) }),
       this.id,
@@ -174,7 +176,7 @@ export class AlbatrossProvider implements Provider {
       destination,
       bookingSearchUrl(this.config.bookingUrl, origin, destination, input),
     );
-    this.journeysCache.set(key, { expiresAt: Date.now() + journeyCacheMs, value: journeys });
+    this.journeysCache.set(key, journeys);
     return journeys;
   }
 
@@ -190,12 +192,12 @@ export class AlbatrossProvider implements Provider {
 
   private async destinations(originId: string): Promise<Locality[]> {
     const cached = this.destinationsCache.get(originId);
-    if (cached !== undefined && cached.expiresAt > Date.now()) return cached.value;
+    if (cached !== undefined) return cached;
     const value = parseLocalities(
       await this.getJson(`${this.config.baseUrl}locations/to?departure=${encodeURIComponent(originId)}&saleGroupId=`),
       this.id,
     );
-    this.destinationsCache.set(originId, { expiresAt: Date.now() + locationCacheMs, value });
+    this.destinationsCache.set(originId, value);
     return value;
   }
 
@@ -244,11 +246,7 @@ export class AlbatrossProvider implements Provider {
       });
       if (response.status === 429) throw new AppError("RATE_LIMITED", `${this.id} rate limit exceeded`, 429);
       if (!response.ok) throw new AppError("PROVIDER_UNAVAILABLE", `${this.id} responded with HTTP ${response.status}`, 503);
-      try {
-        return await response.json();
-      } catch {
-        throw new AppError("INCOMPATIBLE_RESPONSE", `${this.id} returned invalid JSON`, 502);
-      }
+      return await responseJson(response, this.id);
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError("PROVIDER_UNAVAILABLE", `${this.id} request timed out or failed`, 503);

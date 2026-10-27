@@ -1,5 +1,7 @@
 import { AppError, type Journey, type Location, type SearchInput } from "../domain.ts";
 import type { Provider } from "./provider.ts";
+import { TtlCache } from "../cache.ts";
+import { responseJson } from "../upstream.ts";
 
 const baseUrl = "https://app.itabus.it/on/demandware.store/Sites-ITABUS-Site/it";
 function bookingUrl(input: SearchInput): string {
@@ -29,16 +31,16 @@ function string(value: unknown, field: string): string {
 }
 
 function durationMinutes(value: unknown, departure: string, arrival: string): number {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const clock = /^(\d{1,2}):(\d{2})$/.exec(value);
-    if (clock !== null) return Number(clock[1]) * 60 + Number(clock[2]);
-    const words = /^(\d+)h(?:\s*(\d+)m)?$/.exec(value);
-    if (words !== null) return Number(words[1]) * 60 + Number(words[2] ?? 0);
-  }
   const difference = (Date.parse(arrival) - Date.parse(departure)) / 60_000;
   if (!Number.isFinite(difference) || difference < 0) {
     throw new AppError("INCOMPATIBLE_RESPONSE", "Itabus travel duration is invalid", 502);
+  }
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) return value;
+  if (typeof value === "string") {
+    const clock = /^(\d{1,2}):([0-5]\d)$/.exec(value);
+    if (clock !== null) return Number(clock[1]) * 60 + Number(clock[2]);
+    const words = /^(\d+)h(?:\s*(\d+)m)?$/.exec(value);
+    if (words !== null) return Number(words[1]) * 60 + Number(words[2] ?? 0);
   }
   return difference;
 }
@@ -54,8 +56,8 @@ function cheapestRate(value: unknown): { fare?: string; amount?: number; currenc
     }
     if (typeof node !== "object" || node === null) return;
     const rate = node as RecordValue;
-    const amount = typeof rate.price === "number" ? rate.price : Number(rate.price);
-    if (Number.isFinite(amount)) {
+    const amount = typeof rate.price === "number" || (typeof rate.price === "string" && rate.price.trim() !== "") ? Number(rate.price) : Number.NaN;
+    if (Number.isFinite(amount) && amount >= 0) {
       candidates.push({
         fare: typeof rate.product_family_id === "string" ? rate.product_family_id : path.at(-1) ?? "UNKNOWN",
         amount,
@@ -172,7 +174,7 @@ export class ItabusProvider implements Provider {
   readonly statusReason = "Authorized live integration with timeout and in-memory cache";
   private readonly fetcher: Fetcher;
   private stationsCache?: { expiresAt: number; value: Station[] };
-  private readonly journeysCache = new Map<string, { expiresAt: number; value: Journey[] }>();
+  private readonly journeysCache = new TtlCache<Journey[]>(journeyCacheMs);
 
   constructor(fetcher: Fetcher = fetch) {
     this.fetcher = fetcher;
@@ -214,9 +216,9 @@ export class ItabusProvider implements Provider {
     });
     const url = `${baseUrl}/Api-Travels?${parameters}`;
     const cached = this.journeysCache.get(url);
-    if (cached !== undefined && cached.expiresAt > Date.now()) return cached.value;
+    if (cached !== undefined) return cached;
     const journeys = parseItabusJourneys(await this.getJson(url), input);
-    this.journeysCache.set(url, { expiresAt: Date.now() + journeyCacheMs, value: journeys });
+    this.journeysCache.set(url, journeys);
     return journeys;
   }
 
@@ -237,11 +239,7 @@ export class ItabusProvider implements Provider {
       });
       if (response.status === 429) throw new AppError("RATE_LIMITED", "Itabus rate limit exceeded", 429);
       if (!response.ok) throw new AppError("PROVIDER_UNAVAILABLE", `Itabus responded with HTTP ${response.status}`, 503);
-      try {
-        return await response.json();
-      } catch {
-        throw new AppError("INCOMPATIBLE_RESPONSE", "Itabus returned invalid JSON", 502);
-      }
+      return await responseJson(response, "Itabus");
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError("PROVIDER_UNAVAILABLE", "Itabus request timed out or failed", 503);

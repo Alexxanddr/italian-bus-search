@@ -1,5 +1,7 @@
 import { AppError, type Journey, type Location, type SearchInput } from "../domain.ts";
 import type { Provider } from "./provider.ts";
+import { TtlCache } from "../cache.ts";
+import { responseJson } from "../upstream.ts";
 
 const apiBaseUrl = "https://global.api.flixbus.com";
 const timeoutMs = 5_000;
@@ -100,8 +102,8 @@ export class FlixBusProvider implements Provider {
   readonly status = "available";
   readonly statusReason = "Authorized anonymous live integration with timeout and in-memory cache";
   private readonly fetcher: Fetcher;
-  private readonly citiesCache = new Map<string, { expiresAt: number; value: City[] }>();
-  private readonly journeysCache = new Map<string, { expiresAt: number; value: Journey[] }>();
+  private readonly citiesCache = new TtlCache<City[]>(locationCacheMs);
+  private readonly journeysCache = new TtlCache<Journey[]>(journeyCacheMs);
 
   constructor(fetcher: Fetcher = fetch) { this.fetcher = fetcher; }
 
@@ -117,18 +119,19 @@ export class FlixBusProvider implements Provider {
     const params = new URLSearchParams({ from_city_id: origin.id, to_city_id: destination.id, departure_date: input.date.split("-").reverse().join("."), products: JSON.stringify({ adult: input.adults, ...(input.children > 0 ? { children: input.children } : {}) }), currency: "EUR", locale: "it_IT", search_by: "cities", include_after_midnight_rides: "1" });
     const url = `${apiBaseUrl}/search/service/v4/search?${params}`;
     const cached = this.journeysCache.get(url);
-    if (cached !== undefined && cached.expiresAt > Date.now()) return cached.value;
+    if (cached !== undefined) return cached;
     const journeys = parseFlixBusJourneys(await this.getJson(url), input, origin, destination);
-    this.journeysCache.set(url, { expiresAt: Date.now() + journeyCacheMs, value: journeys });
+    this.journeysCache.set(url, journeys);
     return journeys;
   }
 
   private async cities(query: string): Promise<City[]> {
     const cacheKey = normalize(query);
     const cached = this.citiesCache.get(cacheKey);
-    if (cached !== undefined && cached.expiresAt > Date.now()) return cached.value;
+    if (cached !== undefined) return cached;
     const value = parseCities(await this.getJson(`${apiBaseUrl}/search/autocomplete/cities?q=${encodeURIComponent(query)}&lang=it`));
-    this.citiesCache.set(cacheKey, { expiresAt: Date.now() + locationCacheMs, value });
+    for (const city of value) this.citiesCache.set(city.id, [city]);
+    this.citiesCache.set(cacheKey, value);
     return value;
   }
 
@@ -144,7 +147,7 @@ export class FlixBusProvider implements Provider {
       const response = await this.fetcher(url, { headers: { accept: "application/json", "user-agent": "italian-travel-search/0.1" }, signal: AbortSignal.timeout(timeoutMs) });
       if (response.status === 429) throw new AppError("RATE_LIMITED", "FlixBus rate limit exceeded", 429);
       if (!response.ok) throw new AppError("PROVIDER_UNAVAILABLE", `FlixBus responded with HTTP ${response.status}`, 503);
-      try { return await response.json(); } catch { throw new AppError("INCOMPATIBLE_RESPONSE", "FlixBus returned invalid JSON", 502); }
+      return await responseJson(response, "FlixBus");
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError("PROVIDER_UNAVAILABLE", "FlixBus request timed out or failed", 503);

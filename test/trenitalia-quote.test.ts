@@ -23,3 +23,20 @@ test("fails safely on quote rate limits and ambiguous locations", async () => {
   await assert.rejects(new TrenitaliaQuoteProvider(async () => new Response("", { status: 429 })).searchQuotes(input), (error: unknown) => error instanceof AppError && error.code === "RATE_LIMITED");
   await assert.rejects(new TrenitaliaQuoteProvider(async () => Response.json([{ id: 1, name: "Roma Termini" }, { id: 2, name: "Roma Termini" }])).searchQuotes(input), (error: unknown) => error instanceof AppError && error.code === "AMBIGUOUS_LOCATION");
 });
+
+test("reports the upstream pagination bound instead of silently returning a truncated set", async () => {
+  const provider = new TrenitaliaQuoteProvider(async () => Response.json({ solutions: Array.from({ length: 10 }, (_, index) => ({ solution: {
+    id: String(index), departureTime: "2026-11-10T08:00:00+01:00", arrivalTime: "2026-11-10T10:00:00+01:00", nodes: [],
+  } })) }));
+  await assert.rejects(provider.searchQuotes({ ...input, origin: "IT::StopPlace:otherTRENITALIA:1", destination: "IT::StopPlace:otherTRENITALIA:2" }), /pagination safety limit/);
+});
+
+test("provides cached live station discovery without a timetable cache", async () => {
+  let requests = 0;
+  const provider = new TrenitaliaQuoteProvider(async () => { requests += 1; return Response.json([{ id: 123, name: "Roma Termini" }]); });
+  const stations = await provider.searchLocations("Roma");
+  assert.equal(stations[0]?.id, "IT::StopPlace:otherTRENITALIA:123");
+  assert.equal(stations[0]?.source, "live");
+  await provider.searchLocations("Roma");
+  assert.equal(requests, 1);
+});

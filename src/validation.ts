@@ -13,13 +13,12 @@ export function validateSearchInput(input: {
   date?: unknown;
   adults?: unknown;
   children?: unknown;
-}): SearchInput {
+}, now = new Date()): SearchInput {
   const date = requiredText(input.date, "date");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) invalidDate();
   const parsedDate = new Date(`${date}T00:00:00Z`);
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-  if (Number.isNaN(parsedDate.valueOf()) || parsedDate.toISOString().slice(0, 10) !== date || parsedDate <= today) invalidDate();
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  if (Number.isNaN(parsedDate.valueOf()) || parsedDate.toISOString().slice(0, 10) !== date || date <= today) invalidDate();
 
   return {
     origin: requiredText(input.origin, "origin"),
@@ -51,7 +50,9 @@ function requiredText(value: unknown, name: string): string {
   if (typeof value !== "string" || value.trim() === "") {
     throw new AppError("INVALID_INPUT", `${name} is required`, 400);
   }
-  return value.trim();
+  const text = value.trim();
+  if (text.length > 200) throw new AppError("INVALID_INPUT", `${name} must be at most 200 characters`, 400);
+  return text;
 }
 
 function passengerCount(value: unknown, name: string, fallback: number, minimum: number): number {

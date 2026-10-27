@@ -10,6 +10,11 @@ Both APIs return JSON and use ISO 8601 timestamps. Unknown routes return
 identifier in each process-local minute. `GET /health` returns
 `{"status":"ok"}` without contacting any provider.
 
+`/health` is exempt from the request limit. Input text is trimmed and limited
+to 200 characters. Search dates must be after today's date in `Europe/Rome`,
+independently of the host timezone. An empty successful search returns `200`
+with `NO_JOURNEYS`; upstream failure with no journeys returns `503`.
+
 Provider failures are isolated. Aggregate responses preserve successful data
 and add safe entries to `errors`; upstream bodies, cookies, tokens, and stack
 traces are never returned.

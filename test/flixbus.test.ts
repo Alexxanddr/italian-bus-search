@@ -58,3 +58,16 @@ test("rejects invalid timestamps", () => {
   invalid.trips[0].results.ok.departure.date = "not-a-date";
   assert.throws(() => parseFlixBusJourneys(invalid, input, origin, destination), (error: unknown) => error instanceof AppError && error.code === "INCOMPATIBLE_RESPONSE");
 });
+
+test("reuses discovered city IDs without autocompleting opaque IDs", async () => {
+  const provider = new FlixBusProvider(async (request) => {
+    const url = String(request);
+    if (url.includes("q=Roma")) return Response.json([{ id: origin.id, name: origin.name, is_flixbus_city: true }]);
+    if (url.includes("q=Cosenza")) return Response.json([{ id: destination.id, name: destination.name, is_flixbus_city: true }]);
+    if (url.includes("autocomplete")) throw new Error("Opaque ID must come from the location cache");
+    return Response.json(payload());
+  });
+  await provider.searchLocations("Roma");
+  await provider.searchLocations("Cosenza");
+  assert.equal((await provider.searchJourneys({ ...input, origin: origin.id, destination: destination.id })).length, 2);
+});
