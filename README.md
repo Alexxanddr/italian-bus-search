@@ -36,7 +36,7 @@ The project hides provider-specific station catalogs, request formats, fare stru
 | `marinobus` | MarinoBus | Albatross tenant | Live | Live |
 | `flixbus` | FlixBus | Global FlixBus search API | Live | Live |
 
-Provider behavior and the evidence behind each integration are recorded in [Provider research](docs/research.md).
+Public provider behavior and limitations are documented in the bus and train API guides below.
 
 Rail schedule support uses compact local caches refreshed from Italian NAP NeTEx with `npm run build && npm run rail:update`. Optional `TRENITALIA_NETEX_PATH` and `ITALO_NETEX_PATH` variables override their paths. Trenitalia and Italo prices, ViaggiaTreno live data, and Italo live boards/standalone status are enabled. Italo quote searches use an anonymous temporary planning session and clean it up best-effort.
 
@@ -164,7 +164,6 @@ The default server deliberately binds to loopback and keeps rate-limit and cache
 - [Architecture](docs/architecture.md) — modules, seams, flows, and design decisions.
 - [Adding a provider](docs/adding-provider.md) — research, implementation, and verification checklist.
 - [Operations](docs/operations.md) — configuration, deployment constraints, and failure handling.
-- [Provider research](docs/research.md) — primary-source evidence and known limitations.
 - [Glossary](GLOSSARY.md) — stable project terminology.
 - [Contributing](CONTRIBUTING.md) — local workflow and pull-request expectations.
 - [Security policy](SECURITY.md) — private vulnerability reporting and supported versions.

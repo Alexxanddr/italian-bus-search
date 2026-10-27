@@ -53,7 +53,7 @@ Follow [Adding a provider](docs/adding-provider.md). Live probes must be authori
 - MCP tool or stdio changes update [docs/mcp.md](docs/mcp.md).
 - Module or data-flow changes update [docs/architecture.md](docs/architecture.md).
 - Deployment changes update [docs/operations.md](docs/operations.md).
-- Provider evidence and live verification update [docs/research.md](docs/research.md).
+- Provider evidence and live verification update a gitignored `docs/private/*.hide.md` note.
 - New terms update [GLOSSARY.md](GLOSSARY.md) only when they are part of the project's stable vocabulary.
 
 ## Pull requests
