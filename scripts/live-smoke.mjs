@@ -50,14 +50,16 @@ try {
   await call("search_locations", { query: "Roma", limit: 50 });
   await call("search_locations", { query: "Cosenza", limit: 50 });
   const args = { origin: "Roma", destination: "Cosenza", date, adults: 1, children: 0, limit: 50 };
-  const buses = await call("search_journeys", args);
+  const buses = await call("search_journeys", { ...args, snapshot: true });
+  assert.ok(buses.value.searchId && buses.value.expiresAt);
   assert.ok(buses.value.journeys?.length > 0, "No bus results");
   const stations = await call("search_train_locations", { query: "Roma Termini", limit: 50 });
   await call("search_train_locations", { query: "Cosenza", limit: 50 });
-  const trains = await call("search_train_journeys", { ...args, origin: "Roma Termini", offset: 0, limit: 10 });
+  const trains = await call("search_train_journeys", { ...args, origin: "Roma Termini", snapshot: true, offset: 0, limit: 10 });
+  assert.ok(trains.value.searchId && trains.value.expiresAt);
   const accumulated = [...(trains.value.journeys ?? [])];
   for (let offset = 10; offset < (trains.value.total ?? 0); offset += 10) {
-    accumulated.push(...(await call("search_train_journeys", { ...args, origin: "Roma Termini", offset, limit: 10 })).value.journeys);
+    accumulated.push(...(await call("search_train_journeys", { searchId: trains.value.searchId, offset, limit: 10 })).value.journeys);
   }
   assert.equal(accumulated.length, trains.value.total);
   assert.equal(new Set(accumulated.map(({ journeyId }) => journeyId)).size, accumulated.length);
@@ -68,6 +70,11 @@ try {
   }
   console.log(JSON.stringify({ test: "train-pagination", count: accumulated.length, priced: accumulated.filter(({ price }) => price !== null).length }));
   await call("search_train_journeys", { ...args, origin: "Roma Termini", destination: "Milano Centrale", provider: "italo", offset: 0 });
+  for (const provider of ["trenitalia", "italo"]) {
+    const paola = await call("search_train_journeys", { ...args, origin: "Roma Termini", destination: "Paola", provider, snapshot: true });
+    assert.ok(paola.value.journeys?.length > 0, `No Roma–Paola results for ${provider}`);
+    assert.deepEqual(paola.value.errors, []);
+  }
   for (const station of stations.value.locations ?? []) {
     for (const direction of ["departures", "arrivals"]) {
       const board = await call("get_station_board", { provider: station.provider, stationId: station.id, stationName: station.name, direction });

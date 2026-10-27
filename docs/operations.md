@@ -10,14 +10,10 @@ HOST=127.0.0.1 PORT=3000 npm start
 
 `PORT` must be an integer from 1 through 65535. `HOST` defaults to `127.0.0.1`; the container sets it to `0.0.0.0` and must remain reachable only through the cluster-internal Service.
 
-Rail schedules are opt-in local files:
-
-| Variable | Meaning |
-|---|---|
-| `TRENITALIA_NETEX_PATH` | Optional cache override; defaults to `data/trenitalia-timetable.json.gz` |
-| `ITALO_NETEX_PATH` | Optional cache override; defaults to `data/italo-timetable.json.gz` |
-
-The update command downloads the two reviewed public `checkedResource` distributions directly from allowlisted `https://www.cciss.it` URLs. It parses gzip/XML as a stream, writes a compact validated JSON gzip cache, and atomically replaces the previous cache. Schedule searches fail closed outside dataset validity. Generated caches remain local and are ignored by Git.
+Rail discovery and journeys use live booking APIs. No dataset files, NAP downloads,
+`*_NETEX_PATH` variables, update command or persistent volume are required.
+Existing retained volumes can remain detached for rollback; do not delete their
+data as part of migration.
 
 A host starts the compiled stdio entrypoint:
 
@@ -43,7 +39,7 @@ The process needs HTTPS access to the provider hosts configured in source code:
 - `biglietti.italotreno.com`
 - `api-biglietti.italotreno.com`
 
-`npm run rail:update` additionally needs access to `www.cciss.it`. Client input and environment variables cannot choose an outbound URL.
+Client input and environment variables cannot choose an outbound URL.
 
 Provider URLs are not supplied by clients. DNS, TLS, timeout, non-success status, and JSON failures become structured provider errors.
 
@@ -63,9 +59,17 @@ Successful bus journeys and rail quote observations are cached for 60 seconds. L
 - have no manual invalidation interface;
 - do not cache failures.
 
-Keyed provider caches have a maximum of 128 entries each and evict expired or oldest entries. HTTP and MCP share the same provider adapters in the deployed process; stateless MCP exchanges do not reset caches or reload timetables. A failed initial timetable load is retried on the next request.
+Keyed provider caches have a maximum of 128 entries each and evict expired or oldest entries. HTTP and MCP share the same provider adapters in the deployed process; stateless MCP exchanges do not reset caches.
 
 Multiple replicas can therefore produce more upstream traffic than one replica and may return data observed at slightly different times.
+
+Legacy offset pagination does not pin a snapshot. Prefer the opt-in
+`snapshot: true` flow for exhaustive journey searches: a shared HTTP/MCP
+store retains serialized, immutable results for five minutes, at most 32
+entries of 1 MiB each (at most 32 MiB serialized payload, plus runtime
+overhead). Capacity eviction, expiry and restart return SEARCH_EXPIRED.
+Errors and empty responses are frozen too; start a new search to retry.
+Redis and other persistent/shared databases are not used.
 
 ## Rate limiting
 
@@ -79,15 +83,13 @@ Each MCP handler permits 60 combined bus and rail search/status calls per minute
 
 ## Failure behavior
 
-- A schedule provider timeout or network error becomes `PROVIDER_UNAVAILABLE`; quote and live failures use `QUOTE_UNAVAILABLE` and `LIVE_STATUS_UNAVAILABLE`.
+- A bus timeout or network error becomes `PROVIDER_UNAVAILABLE`; rail booking and live failures use `QUOTE_UNAVAILABLE` and `LIVE_STATUS_UNAVAILABLE`.
 - Upstream HTTP 429 becomes `RATE_LIMITED` for that provider.
 - Invalid JSON or a schema mismatch becomes `INCOMPATIBLE_RESPONSE`.
 - A failure from one provider does not discard another provider's successful data.
-- Quote failure does not remove a scheduled rail journey; it remains with `price: null` and a provider-scoped error.
+- Rail booking failure returns no journeys for that operator and an explicit error; successful operators remain.
 - A successful empty journey search returns HTTP 200 with `NO_JOURNEYS`; HTTP 503 is reserved for empty results containing another provider failure.
-- Live rail quotes are attempted even if the NeTEx cache is missing or expired; timetable errors remain explicit alongside successful quotes.
-- A failed timetable load falls back to live station discovery, with `source: live` and the schedule error preserved.
-- A successful empty quote response returns no theoretical timetable combinations.
+- A successful empty booking response stays empty; no timetable combinations are generated.
 - Trenitalia searches stop at the requested local day; reaching the 100-solution safety bound returns an explicit `QUOTE_UNAVAILABLE` instead of silently reporting a complete live set.
 
 Use the `errors` array for provider-level diagnosis. The application intentionally omits upstream bodies and stack traces.
@@ -100,22 +102,25 @@ For an internet-facing deployment, add observability at a trusted reverse proxy 
 
 ## Shutdown and scaling
 
-On `SIGINT`/`SIGTERM`, the HTTP process stops accepting connections and drains requests for at most 20 seconds. The stdio process allows five seconds for transport cleanup. The existing single-replica `Recreate` deployment still has an interruption during rollout and timetable initialization.
+On `SIGINT`/`SIGTERM`, the HTTP process stops accepting connections and drains requests for at most 20 seconds. The stdio process allows five seconds for transport cleanup. The existing single-replica `Recreate` deployment still has an interruption during rollout; it no longer waits for timetable initialization.
 
-Horizontal scaling is stateless from a correctness perspective, but cache and limiter state are independent per replica. Account for the resulting upstream request multiplication.
+Keep one replica while snapshots are process-local. A different replica
+cannot resume another process's searchId and returns SEARCH_EXPIRED.
+Shared storage is required before enabling snapshot pagination across
+multiple replicas. Cache and limiter state are also process-local.
 
 The stdio server is intended for one local host connection. `/mcp` is stateless and intended for a private service network; authentication and public ingress are deliberately absent.
 
 ## Deployment checklist
 
 - Confirm provider authorization and redistribution terms for the deployment.
-- Run `npm run build && npm run rail:update`; optionally set the two `*_NETEX_PATH` overrides before both update and runtime.
+- Run `npm run build`; no rail initialization is necessary.
 - Keep the application private or place it behind a trusted TLS reverse proxy.
 - Apply edge rate limiting and request-size limits.
 - Restrict outbound traffic to required provider hosts.
 - Run `npm run check` and `npm audit --audit-level=high` from a clean checkout.
 - For MCP, build first and configure the host to execute the absolute `dist/mcp/stdio.js` path.
-- For container MCP, initialize the two caches with `node dist/rail/update.js`, mount them at the configured paths, and use `/mcp` over the cluster-internal Service.
+- For container MCP, start the image directly and use `/mcp` over the cluster-internal Service. No dataset mount or init container is needed.
 - Monitor provider error codes and response latency.
 - Do not inject provider credentials; current adapters require none.
 - Revalidate live schemas after any `INCOMPATIBLE_RESPONSE` increase.
@@ -127,7 +132,6 @@ The stdio server is intended for one local host connection. `/mcp` is stateless 
 The container workflow rebuilds on runtime/build-file changes. Documentation
 and test-only commits do not replace `latest` or trigger an unnecessary rollout.
 
-NeTEx updates validate every redirect before contacting the destination. Compressed downloads are limited to 64 MiB, decoded XML to 512 MiB, and XML depth to 128; document-type declarations are rejected. Runtime gzip cache decoding is limited to 128 MiB and validates cache fields and chronological stop times before use.
 
 ## Manual live smoke test
 

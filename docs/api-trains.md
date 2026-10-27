@@ -2,29 +2,24 @@
 
 ## Sources and price behavior
 
-The train API combines two sources with explicit provenance:
+The train API uses Trenitalia and Italo live booking APIs for station catalogs,
+journeys, passenger-specific total prices and availability. No local timetable
+dataset, NAP download or import process is required.
 
-- authorized Italian NAP NeTEx caches provide stations and the scheduled-service baseline;
-- Trenitalia and Italo booking searches provide current saleable journeys, passenger-specific total prices, and availability.
+Successful booking responses, including empty searches, are authoritative.
+When an operator fails, it contributes only an explicit provider error;
+successful results from other operators remain. There is no timetable fallback
+or locally calculated connection. Every connection comes from reported legs.
 
-When a booking search succeeds, including an empty response, that live result set is
-authoritative. Matching NeTEx journeys are enriched and additional live
-multi-change solutions are constructed from the booking response. Theoretical
-NeTEx combinations not offered by the booking system are omitted.
+A non-saleable solution can contain `price: null` and `available: false`.
+Missing prices are never converted to zero or inferred. The legacy field name
+`timetableSource` remains for compatibility and now always describes the live
+booking observation, not a local dataset.
 
-If a booking search fails, scheduled journeys remain available with
-`price: null` and a `QUOTE_UNAVAILABLE` or `RATE_LIMITED` provider error. A
-successful non-saleable solution can also contain `price: null` and
-`available: false`. A missing price is never converted to zero or inferred.
-
-Quote searches still run when the local timetable is missing or expired; the
-response retains the schedule error while returning any successful live data.
-If a timetable cannot be loaded, station discovery falls back to the verified
-live catalogs and labels those locations `source: live`; the cache error is
-preserved. Trenitalia's live autocomplete fallback is capped at 50 matches;
-use a more precise station name when needed.
-Timetable departures use the calendar day at the boarding station, including
-trains whose service began the previous day and transfers after midnight.
+Locations have `source: live`. Existing namespaced IDs remain accepted and
+can be reused directly in journey/board calls with the matching provider.
+Trenitalia autocomplete is capped at 50 matches; use precise station names.
+The `schedule` capability means journey times can be searched live.
 
 ## `GET /train-providers`
 
@@ -55,10 +50,9 @@ service routes. They require no customer account or API key in this deployment.
 | Trenitalia status | ViaggiaTreno `cercaNumeroTrenoTrenoAutocomplete/{number}` then `andamentoTreno/{originCode}/{number}/{epoch}` | Anonymous; candidate must match date and origin |
 | Trenitalia board | ViaggiaTreno `autocompletaStazione/{name}` then `arrivi` or `partenze` | Anonymous |
 | Italo anonymous login | `POST https://biglietti.italotreno.com/api/login` | Creates a short-lived anonymous bearer session |
-| Italo stations | `POST https://api-biglietti.italotreno.com/api/v1/stations/list` | Anonymous bearer plus working-session ID |
+| Italo stations | `POST https://api-biglietti.italotreno.com/api/v1/stations/list` | Anonymous for discovery; bearer plus working-session ID inside quote searches |
 | Italo journeys/prices | `POST …/api/v1/booking`, then `GET …/booking/status/{operationId}` | Polls for at most 20 seconds; booking and working session are deleted best-effort |
 | Italo status/board | `GET https://italoinviaggio.italotreno.com/api/RicercaTrenoService` or `RicercaStazioneService` | Anonymous; status date remains unverified |
-| Timetable refresh | CCISS/NAP `checkedResource` assets `1080596` (Trenitalia) and `1814124` (Italo) | Public download; compact caches remain local |
 
 Trenitalia quote requests include location IDs, date/time, adult/child counts,
 sorting and pagination criteria. Italo quote requests include station IDs,
@@ -96,7 +90,7 @@ curl 'http://127.0.0.1:3000/train-locations?query=Roma'
       "id": "IT::StopPlace:otherTRENITALIA:830008409",
       "name": "ROMA TERMINI",
       "city": "ROMA TERMINI",
-      "source": "historical_snapshot",
+      "source": "live",
       "observedAt": "2026-10-22T14:15:47Z"
     },
     {
@@ -104,7 +98,7 @@ curl 'http://127.0.0.1:3000/train-locations?query=Roma'
       "id": "IT::StopPlace:RMT",
       "name": "Roma Termini (Rome)",
       "city": "Roma Termini (Rome)",
-      "source": "historical_snapshot",
+      "source": "live",
       "observedAt": "2026-10-24T02:03:28+02:00"
     }
   ],

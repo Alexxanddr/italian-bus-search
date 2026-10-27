@@ -11,7 +11,7 @@ The application provides small read-only HTTP and MCP interfaces over incompatib
 | `src/domain.ts` | Normalized data types and application errors |
 | `src/app.ts` | HTTP validation, routing, status selection, and rate limiting |
 | `src/mcp/` | Shared MCP tools and stdio process entrypoint |
-| `src/rail/` | Rail capability contracts, NeTEx schedule parsing/update, and aggregation |
+| `src/rail/` | Live rail booking/status adapters, normalization, and aggregation |
 | `src/validation.ts` | Shared inbound search validation |
 | `src/rate-limit.ts` | Shared process-local limiter factory |
 | `src/search.ts` | Provider selection, concurrency, and partial-result aggregation |
@@ -65,7 +65,7 @@ Changing a domain field affects the HTTP interface, every adapter, fixtures, and
 
 ### MCP module
 
-`src/mcp/server.ts` keeps the three bus tools over `SearchService` and registers five rail tools over `RailSearchService`, quote adapters, and live adapters. It owns MCP schemas, bounded result presentation, structured content, and safe tool errors. `createBusMcpServer({ providers, railProviders, railQuoteProviders, railLiveProviders })` is its test seam.
+`src/mcp/server.ts` keeps the three bus tools over `SearchService` and registers five rail tools over `RailSearchService`, quote adapters, and live adapters. It owns MCP schemas, bounded result presentation, structured content, and safe tool errors. `createBusMcpServer({ providers, railProviders, railLiveProviders })` is its test seam.
 
 `src/mcp/stdio.ts` owns local process transport and shutdown. `src/app.ts` mounts the same server factory at `/mcp` using the SDK's stateless Streamable HTTP handler. The complete interface is in [mcp.md](mcp.md).
 
@@ -143,15 +143,23 @@ All state is process-local:
 | Client request counter | 60 seconds |
 | MCP search counter | 60 seconds |
 | Successful journey result | 60 seconds |
+| Immutable journey snapshot | At most 5 minutes; 32 entries, 1 MiB each |
 | Locations, destination catalogs, and fare categories | 1 hour |
 
 Failed upstream requests are not cached. There is no persistent storage, shared cache, queue, or background worker.
 
+Opt-in journey snapshots are separate from provider caches: they freeze the
+entire aggregate response, including errors and empty results, under a random
+searchId. HTTP and stateless MCP share one SearchSnapshots instance.
+Continuation validates the ID/mode and paginates the stored serialization;
+it never calls a provider or accepts replacement query fields. Expiry,
+eviction and restart require an explicit new search.
+
 Provider instances and their bounded caches are shared by HTTP and MCP in one
 process. Each keyed cache holds at most 128 entries; stateless MCP creates only
 the protocol instance per exchange. `upstream.ts` bounds response bodies while
-reading them, before JSON parsing. Timetable files are loaded once per adapter;
-an initial failed load can recover on a later request.
+reading them, before JSON parsing. Rail stations and journeys come from live
+booking APIs; no timetable files or refresh worker are used.
 
 ## Test architecture
 
@@ -172,9 +180,8 @@ The automated suite is deterministic and offline. Live checks are separate, low-
 - Liveness does not imply provider readiness.
 - Rate limiting is suitable for a single local process, not a distributed public edge.
 - Streamable HTTP is cluster-internal and unauthenticated; no public MCP ingress is implemented.
-- Rail schedule, quote, and live capabilities are separate. A successful Trenitalia or Italo booking search is authoritative for the returned journey set: exact NeTEx matches retain NAP provenance and additional live solutions are normalized from their reported legs. NeTEx schedules remain the fallback when quoting fails. ViaggiaTreno and verified Italo live reads are independent; Italo quote state is temporary and cleaned up best-effort.
-- NeTEx refresh parses the large XML feeds as streams and atomically writes compact JSON gzip caches; runtime searches never parse XML.
+- `LiveRailProvider` normalizes each operator's booking solutions into the existing journey contract. `RailSearchService` aggregates these live providers and preserves partial results. Failed booking searches never produce theoretical journeys. Live status and boards remain independent; Italo quote state is temporary and cleaned up best-effort.
 - Italo In Viaggio is enabled only for standalone train status and boards. Its train status is never joined to a dated schedule because the source cannot prove the service date.
-- Rail fallback routes include direct and one-change services from one timetable dataset, with calendar-day boarding and cross-midnight transfers. Live booking searches can return additional multi-change routes. Cross-operator routing is not implemented.
+- Connections are returned only when reported by the booking API; the service does not construct routes from timetables or join separate operators.
 
 Production-hardening implications are documented in [operations.md](operations.md).

@@ -1,6 +1,6 @@
 # Agent guide
 
-This repository is an unofficial, read-only aggregator for Italian coach journeys. Preserve the normalized HTTP and MCP interfaces and keep remote integrations low-impact.
+This repository is an unofficial, read-only aggregator for Italian coach and live rail journeys. Preserve the normalized HTTP and MCP interfaces and keep remote integrations low-impact.
 
 ## Start here
 

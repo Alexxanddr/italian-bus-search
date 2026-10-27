@@ -2,7 +2,7 @@ import type { Location, RailJourney, RailSearchInput, RailLiveStatus, RailPrice,
 
 export type RailOperator = "trenitalia" | "italo";
 
-export interface RailScheduleProvider {
+export interface RailProvider {
   readonly id: RailOperator;
   searchLocations(query: string): Promise<Location[]>;
   searchJourneys(input: RailSearchInput): Promise<RailJourney[]>;
@@ -21,7 +21,7 @@ export type RailQuote = {
 
 export interface RailQuoteProvider {
   readonly id: RailOperator;
-  searchLocations?(query: string): Promise<Location[]>;
+  searchLocations(query: string): Promise<Location[]>;
   searchQuotes(input: RailSearchInput): Promise<RailQuote[]>;
 }
 

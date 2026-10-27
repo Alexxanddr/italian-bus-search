@@ -2,18 +2,18 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Alexxanddr/italian-travel-search",
   "title": "Italian Travel Search MCP Server",
-  "description": "Italian bus and train searches with live prices, timetable fallback and status.",
+  "description": "Italian bus and train searches with live prices, availability and status.",
   "repository": {
     "url": "https://github.com/Alexxanddr/italian-travel-search",
     "source": "github"
   },
-  "version": "0.3.4",
+  "version": "0.3.5",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "italian-travel-search",
-      "version": "0.3.4",
+      "version": "0.3.5",
       "transport": {
         "type": "stdio"
       }

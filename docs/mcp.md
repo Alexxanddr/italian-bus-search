@@ -4,7 +4,7 @@ This document is the authoritative contract for the local Model Context Protocol
 
 ## Transport and lifecycle
 
-The same tools are available over local stdio and stateless Streamable HTTP. A local host starts `dist/mcp/stdio.js`; a service host starts `dist/index.js` and mounts `/mcp`. Each HTTP exchange gets a fresh MCP protocol instance while provider adapters, loaded timetables, caches, and the search budget remain shared for the handler's lifetime. MCPHub needs no sticky sessions. Request bodies are limited to 64 KiB. Diagnostics use stderr.
+The same tools are available over local stdio and stateless Streamable HTTP. A local host starts `dist/mcp/stdio.js`; a service host starts `dist/index.js` and mounts `/mcp`. Each HTTP exchange gets a fresh MCP protocol instance while provider adapters, caches, and the search budget remain shared for the handler's lifetime. MCPHub needs no sticky sessions. Request bodies are limited to 64 KiB. Diagnostics use stderr.
 
 The server exposes search tools. Italo prices require anonymous technical session initialization and a temporary planning resource, cleaned up best-effort; no customer account, fare selection, seat reservation or payment is performed. Closing stdin ends the transport; `SIGINT` and `SIGTERM` close it gracefully.
 
@@ -57,11 +57,34 @@ Salemi, Federico, and MarinoBus links open a public search route with origin, de
 
 - `list_train_providers` lists operators and configured schedule, price, live-status, and station-board capabilities without contacting upstream systems.
 - `search_train_locations` resolves Trenitalia/Italo stations. Names are preferred across operators; IDs are provider-specific. It accepts `offset` and `limit` and returns `locations`, provider errors, `total`, and `truncated`.
-- `search_train_journeys` accepts date/passenger fields plus `offset` and `limit`, and returns the provider's live booking solutions with all reported legs, availability, passenger-total prices, official search links, `total`, `truncated`, and provider errors. When every result is requested, advance `offset` by `limit` until `truncated` is false. If a quote source fails, NeTEx schedules remain available with `price: null` and an explicit provider error. Each result carries source/freshness metadata. Use only `bookingUrl` for manual purchase continuation.
+- `search_train_journeys` accepts date/passenger fields plus `offset` and `limit`, and returns the provider's live booking solutions with all reported legs, availability, passenger-total prices, official search links, `total`, `truncated`, and provider errors. When every result is requested, advance `offset` by `limit` until `truncated` is false. If a booking source fails, that operator returns an explicit error and no invented journeys; successful results from other operators remain. Each result carries source/freshness metadata. Use only `bookingUrl` for manual purchase continuation.
 - `get_train_status` requires `provider`, `trainNumber`, `serviceDate`, and `origin`. For Trenitalia, the service-origin name or ViaggiaTreno `S...` code disambiguates multiple same-date records; when the date has exactly one record, an origin returned on a journey leg is also accepted. Italo responses remain standalone with `freshness: date_unverified`.
-- `get_station_board` requires `provider`, `stationId`, `stationName`, and `direction`. Both operators accept the IDs returned by `search_train_locations`; Trenitalia resolves a non-`S...` timetable ID from the exact station name and Italo extracts its operator code from the NeTEx ID.
+- `get_station_board` requires `provider`, `stationId`, `stationName`, and `direction`. Both operators accept the IDs returned by `search_train_locations`; Trenitalia resolves a non-`S...` booking ID from the exact station name and Italo extracts its operator code from the returned namespaced station ID.
 
 ## Results and errors
+
+### Immutable journey snapshots
+
+For exhaustive bus or train searches, call `search_journeys` or
+`search_train_journeys` with the usual query plus `snapshot: true`,
+`offset: 0` and `limit: 50`. The response adds `searchId`, `createdAt`
+and `expiresAt`. Continue using only `searchId`, `offset` and `limit`;
+the original query/passenger/provider fields must be omitted. For example:
+
+```json
+{"searchId":"UUID-FROM-FIRST-RESPONSE","offset":50,"limit":50}
+```
+
+The query fields are required for new searches only. This mode freezes
+order, totals, prices and provider errors and never calls upstream again
+for later pages. Start a new snapshot to refresh prices or retry providers.
+Expired/evicted/restarted IDs return a tool error saying the search expired;
+never silently continue with a fresh query. Snapshots last at most five
+minutes, are process-local, hold at most 32 searches and accept at most
+1 MiB per full result. A bus ID cannot be used for trains or vice versa.
+
+Calls without snapshot/searchId retain the existing offset behavior and
+response shape. Only the opt-in snapshot flow guarantees consistent pages.
 
 Every successful tool call contains both compact text for display and `structuredContent` matching the advertised output schema. A provider failure remains in the `errors` array when another provider succeeds.
 

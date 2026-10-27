@@ -32,7 +32,7 @@ A successful aggregate response containing data from at least one provider and s
 
 ### Timetable source
 
-Publication and validity metadata for the local NeTEx dataset that produced a scheduled rail journey. It is separate from volatile quote and live-status observations.
+The legacy `timetableSource` field describes the live booking observation that supplied a rail journey: source, observation timestamp and requested travel date. It does not imply a locally installed dataset and is separate from standalone operational status.
 
 ### Provider
 

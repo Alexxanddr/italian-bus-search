@@ -2,6 +2,14 @@
 
 All notable changes will be documented here. Releases follow Semantic Versioning.
 
+## 0.3.5 - 2026-10-27
+
+- Use live Trenitalia/Italo station catalogs and booking solutions exclusively; remove NeTEx parsing, refresh commands, dataset paths and the XML dependency.
+- Preserve HTTP/MCP tools, provenance fields, nullable fares, live status/boards and partial results; failed operators no longer return theoretical timetable journeys.
+- Resolve Italo station names from the live catalog when searches use returned IDs.
+- Remove dataset initialization and mounts from the deployment; retain old volumes for rollback.
+- Add opt-in immutable bus/train search snapshots shared by HTTP and MCP, with five-minute expiry, bounded process memory and explicit expired-search errors.
+
 ## 0.3.4 - 2026-10-27
 
 - Share provider caches and the search budget across stateless MCP exchanges and HTTP adapters.

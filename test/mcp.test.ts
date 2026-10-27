@@ -7,10 +7,12 @@ import { Client, InMemoryTransport, StreamableHTTPClientTransport } from "@model
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 
 import { AppError, type Journey } from "../src/domain.ts";
-import { createMcpApp } from "../src/app.ts";
+import { createApp, createMcpApp } from "../src/app.ts";
+import { SearchSnapshots } from "../src/snapshots.ts";
 import { createBusMcpServer } from "../src/mcp/server.ts";
 import type { Provider } from "../src/providers/provider.ts";
-import type { RailLiveProvider, RailQuoteProvider, RailScheduleProvider } from "../src/rail/provider.ts";
+import { LiveRailProvider } from "../src/rail/booking.ts";
+import type { RailLiveProvider, RailQuoteProvider, RailProvider } from "../src/rail/provider.ts";
 
 const futureDate = new Date(Date.now() + 86_400_000 * 30).toISOString().slice(0, 10);
 const journey: Journey = {
@@ -46,8 +48,8 @@ function workingProvider(calls: { locations: number; journeys: number }): Provid
   };
 }
 
-async function connect(providers: readonly Provider[], railProviders: readonly RailScheduleProvider[] = [], railLiveProviders: readonly RailLiveProvider[] = [], railQuoteProviders: readonly RailQuoteProvider[] = []) {
-  const server = createBusMcpServer({ providers, railProviders, railLiveProviders, railQuoteProviders });
+async function connect(providers: readonly Provider[], railProviders: readonly RailProvider[] = [], railLiveProviders: readonly RailLiveProvider[] = []) {
+  const server = createBusMcpServer({ providers, railProviders, railLiveProviders });
   const client = new Client({ name: "test-client", version: "1.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await server.connect(serverTransport);
@@ -138,12 +140,12 @@ test("discovers all read-only MCP tools and lists bus providers without network 
   assert.deepEqual(trains.structuredContent, { providers: [] });
 });
 
-test("returns scheduled rail results and explicit disabled live capability errors", async (context) => {
+test("returns live rail results and explicit disabled live capability errors", async (context) => {
   const endpoint = (id: string, name: string) => ({ id, name });
-  const railProvider: RailScheduleProvider = {
+  const railProvider: RailProvider = {
     id: "italo",
-    searchLocations: async () => [{ provider: "italo", id: "NTV-ROM", name: "Roma Termini", city: "Roma Termini", source: "historical_snapshot", observedAt: "2026-10-25T09:00:00Z" }],
-    searchJourneys: async (input) => [{ provider: "italo", journeyId: "italo:9920", origin: endpoint("NTV-ROM", "Roma Termini"), destination: endpoint("NTV-MIL", "Milano Centrale"), departure: `${input.date}T08:00:00+01:00`, arrival: `${input.date}T11:10:00+01:00`, durationMinutes: 190, changes: 0, legs: [{ trainNumber: "9920", origin: endpoint("NTV-ROM", "Roma Termini"), destination: endpoint("NTV-MIL", "Milano Centrale"), departure: `${input.date}T08:00:00+01:00`, arrival: `${input.date}T11:10:00+01:00` }], available: null, price: null, bookingUrl: "https://www.italotreno.com/", timetableSource: { source: "Italian NAP NeTEx", publishedAt: "2026-10-25T09:00:00Z", validFrom: "2026-10-01", validThrough: "2030-12-31" } }],
+    searchLocations: async () => [{ provider: "italo", id: "NTV-ROM", name: "Roma Termini", city: "Roma Termini", source: "live", observedAt: "2026-10-25T09:00:00Z" }],
+    searchJourneys: async (input) => [{ provider: "italo", journeyId: "italo:9920", origin: endpoint("NTV-ROM", "Roma Termini"), destination: endpoint("NTV-MIL", "Milano Centrale"), departure: `${input.date}T08:00:00+01:00`, arrival: `${input.date}T11:10:00+01:00`, durationMinutes: 190, changes: 0, legs: [{ trainNumber: "9920", origin: endpoint("NTV-ROM", "Roma Termini"), destination: endpoint("NTV-MIL", "Milano Centrale"), departure: `${input.date}T08:00:00+01:00`, arrival: `${input.date}T11:10:00+01:00` }], available: null, price: null, bookingUrl: "https://www.italotreno.com/", timetableSource: { source: "synthetic booking search", publishedAt: "2026-10-25T09:00:00Z", validFrom: "2026-10-01", validThrough: "2030-12-31" } }],
   };
   const { client, server } = await connect([], [railProvider]);
   context.after(async () => { await client.close(); await server.close(); });
@@ -167,9 +169,9 @@ test("returns verified live rail capabilities through MCP structured output", as
 
 test("returns rail prices and official search links through MCP structured output", async (context) => {
   const endpoint = (id: string, name: string) => ({ id, name });
-  const schedule: RailScheduleProvider = { id: "italo", searchLocations: async () => [], searchJourneys: async () => [{ provider: "italo", journeyId: "italo:9904", origin: endpoint("RMT", "Roma Termini"), destination: endpoint("MC_", "Milano Centrale"), departure: `${futureDate}T05:40:00+01:00`, arrival: `${futureDate}T09:20:00+01:00`, durationMinutes: 220, changes: 0, legs: [{ trainNumber: "9904", origin: endpoint("RMT", "Roma Termini"), destination: endpoint("MC_", "Milano Centrale"), departure: `${futureDate}T05:40:00+01:00`, arrival: `${futureDate}T09:20:00+01:00` }], available: null, price: null, bookingUrl: "https://biglietti.italotreno.com/it/booking/ricerca", timetableSource: { source: "fixture", publishedAt: `${futureDate}T00:00:00Z`, validFrom: futureDate, validThrough: futureDate } }] };
-  const quote: RailQuoteProvider = { id: "italo", searchQuotes: async () => [{ trainNumbers: ["9904"], departure: `${futureDate}T05:40:00+01:00`, arrival: `${futureDate}T09:20:00+01:00`, available: true, price: { amount: 34.9, currency: "EUR", observedAt: `${futureDate}T00:00:00Z`, source: "fixture quote" }, observedAt: `${futureDate}T00:00:00Z`, source: "fixture quote" }] };
-  const { client, server } = await connect([], [schedule], [], [quote]);
+  const schedule: RailProvider = { id: "italo", searchLocations: async () => [], searchJourneys: async () => [{ provider: "italo", journeyId: "italo:9904", origin: endpoint("RMT", "Roma Termini"), destination: endpoint("MC_", "Milano Centrale"), departure: `${futureDate}T05:40:00+01:00`, arrival: `${futureDate}T09:20:00+01:00`, durationMinutes: 220, changes: 0, legs: [{ trainNumber: "9904", origin: endpoint("RMT", "Roma Termini"), destination: endpoint("MC_", "Milano Centrale"), departure: `${futureDate}T05:40:00+01:00`, arrival: `${futureDate}T09:20:00+01:00` }], available: null, price: null, bookingUrl: "https://biglietti.italotreno.com/it/booking/ricerca", timetableSource: { source: "fixture", publishedAt: `${futureDate}T00:00:00Z`, validFrom: futureDate, validThrough: futureDate } }] };
+  const quote: RailQuoteProvider = { id: "italo", searchLocations: async () => [], searchQuotes: async () => [{ trainNumbers: ["9904"], departure: `${futureDate}T05:40:00+01:00`, arrival: `${futureDate}T09:20:00+01:00`, available: true, price: { amount: 34.9, currency: "EUR", observedAt: `${futureDate}T00:00:00Z`, source: "fixture quote" }, observedAt: `${futureDate}T00:00:00Z`, source: "fixture quote", legs: (await schedule.searchJourneys({ origin: "Roma Termini", destination: "Milano Centrale", date: futureDate, adults: 1, children: 0 }))[0]!.legs }] };
+  const { client, server } = await connect([], [new LiveRailProvider(quote)], []);
   context.after(async () => { await client.close(); await server.close(); });
   const result = await client.callTool({ name: "search_train_journeys", arguments: { origin: "Roma Termini", destination: "Milano Centrale", date: futureDate, provider: "italo" } });
   const first = (result.structuredContent as { journeys: Array<{ price: { amount: number }; bookingUrl: string }> }).journeys[0];
@@ -177,6 +179,40 @@ test("returns rail prices and official search links through MCP structured outpu
   assert.equal(first?.bookingUrl, "https://biglietti.italotreno.com/it/booking/ricerca");
   const nextPage = await client.callTool({ name: "search_train_journeys", arguments: { origin: "Roma Termini", destination: "Milano Centrale", date: futureDate, provider: "italo", offset: 1, limit: 1 } });
   assert.deepEqual((nextPage.structuredContent as { journeys: unknown[]; total: number; truncated: boolean }), { journeys: [], errors: [], total: 1, truncated: false });
+});
+
+test("returns explicit live rail failures without scheduled fallback through MCP", async (context) => {
+  const quote: RailQuoteProvider = { id: "italo", searchLocations: async () => [], searchQuotes: async () => { throw new AppError("QUOTE_UNAVAILABLE", "Italo unavailable", 503); } };
+  const { client, server } = await connect([], [new LiveRailProvider(quote)]);
+  context.after(async () => { await client.close(); await server.close(); });
+  const result = await client.callTool({ name: "search_train_journeys", arguments: { origin: "Roma Termini", destination: "Paola", date: futureDate } });
+  assert.deepEqual(result.structuredContent, { journeys: [], errors: [{ provider: "italo", code: "QUOTE_UNAVAILABLE", message: "Italo unavailable" }], total: 0, truncated: false });
+});
+
+test("shares immutable train snapshots across stateless MCP exchanges and HTTP", async (context) => {
+  let calls = 0;
+  const rail: RailProvider = { id: "italo", searchLocations: async () => [], searchJourneys: async () => {
+    calls++;
+    return [1, 2].map((id) => ({ ...journey, provider: "italo" as const, journeyId: String(id), changes: 0, legs: [], price: { amount: calls * 10 + id, currency: "EUR", observedAt: "2026-10-27T10:00:00Z", source: "fixture" }, timetableSource: { source: "fixture booking", publishedAt: "2026-10-27T10:00:00Z", validFrom: futureDate, validThrough: futureDate } }));
+  } };
+  const snapshots = new SearchSnapshots();
+  const app = createMcpApp({ providers: [], railProviders: [rail], snapshots });
+  const client = new Client({ name: "snapshot-test", version: "1" });
+  await client.connect(new StreamableHTTPClientTransport(new URL("http://localhost/mcp"), { fetch: (input, init) => app.fetch(new Request(input, init)) }));
+  context.after(async () => { await client.close(); await app.close(); });
+  const first = await client.callTool({ name: "search_train_journeys", arguments: { origin: "Roma", destination: "Milano", date: futureDate, snapshot: true, limit: 1 } });
+  const saved = first.structuredContent as { searchId: string; total: number };
+  assert.equal(saved.total, 2); assert.ok(saved.searchId);
+  const next = await client.callTool({ name: "search_train_journeys", arguments: { searchId: saved.searchId, offset: 1, limit: 1 } });
+  assert.equal((next.structuredContent as { journeys: Array<{ price: { amount: number } }> }).journeys[0]?.price.amount, 12);
+  assert.equal(calls, 1);
+  const http = createApp([], [rail], [], snapshots);
+  const response = await http(new Request(`http://localhost/train-journeys?searchId=${saved.searchId}&offset=1&limit=1`));
+  assert.deepEqual(await response.json(), next.structuredContent);
+  const conflict = await client.callTool({ name: "search_train_journeys", arguments: { searchId: saved.searchId, adults: 2 } });
+  assert.equal(conflict.isError, true);
+  const missing = await client.callTool({ name: "search_train_journeys", arguments: { searchId: "00000000-0000-0000-0000-000000000000" } });
+  assert.equal(missing.isError, true);
 });
 
 test("keeps partial location results and reports truncation", async (context) => {

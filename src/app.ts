@@ -8,11 +8,12 @@ import { AppError } from "./domain.ts";
 import { createDefaultProviders } from "./providers/default.ts";
 import type { Provider } from "./providers/provider.ts";
 import { createRateLimiter } from "./rate-limit.ts";
+import { SearchSnapshots } from "./snapshots.ts";
 import { SearchService } from "./search.ts";
 import { validateLocationQuery, validateSearchInput, validateServiceDate } from "./validation.ts";
-import { createDefaultRailProviders, createDefaultRailQuoteProviders } from "./rail/default.ts";
+import { createDefaultRailProviders } from "./rail/default.ts";
 import { ItaloLiveProvider } from "./rail/italo-live.ts";
-import type { RailLiveProvider, RailQuoteProvider, RailScheduleProvider } from "./rail/provider.ts";
+import type { RailLiveProvider, RailProvider } from "./rail/provider.ts";
 import { RailSearchService } from "./rail/search.ts";
 import { TrenitaliaLiveProvider } from "./rail/trenitalia-live.ts";
 import { createBusMcpServer, type BusMcpDependencies } from "./mcp/server.ts";
@@ -20,14 +21,14 @@ import { createBusMcpServer, type BusMcpDependencies } from "./mcp/server.ts";
 type Handler = (request: Request, clientId?: string) => Promise<Response>;
 const loggedRoutes = new Set(["/mcp", "/providers", "/train-providers", "/locations", "/journeys", "/train-locations", "/train-journeys", "/train-status", "/station-board"]);
 
-export function createApp(providers: readonly Provider[] = createDefaultProviders(), railProviders?: readonly RailScheduleProvider[], railLiveProviders: readonly RailLiveProvider[] = [new TrenitaliaLiveProvider(), new ItaloLiveProvider()], railQuoteProviders?: readonly RailQuoteProvider[]): Handler {
+export function createApp(providers: readonly Provider[] = createDefaultProviders(), railProviders?: readonly RailProvider[], railLiveProviders: readonly RailLiveProvider[] = [new TrenitaliaLiveProvider(), new ItaloLiveProvider()], snapshots = new SearchSnapshots()): Handler {
   const service = new SearchService(providers);
-  const railService = new RailSearchService(railProviders ?? createDefaultRailProviders(), railQuoteProviders ?? (railProviders === undefined ? createDefaultRailQuoteProviders() : []));
+  const railService = new RailSearchService(railProviders ?? createDefaultRailProviders());
   const rateLimit = createRateLimiter();
   return async (request, clientId = "local") => {
     try {
       if (new URL(request.url).pathname !== "/health") rateLimit(clientId);
-      return await route(request, service, railService, railLiveProviders);
+      return await route(request, service, railService, railLiveProviders, snapshots);
     } catch (error) {
       const appError = error instanceof AppError
         ? error
@@ -39,7 +40,7 @@ export function createApp(providers: readonly Provider[] = createDefaultProvider
 
 export function createServer(dependencies: BusMcpDependencies = {}) {
   const shared = sharedDependencies(dependencies);
-  const app = createApp(shared.providers, shared.railProviders, shared.railLiveProviders, shared.railQuoteProviders);
+  const app = createApp(shared.providers, shared.railProviders, shared.railLiveProviders, shared.snapshots);
   const mcp = createMcpApp(shared);
   const server = createHttpServer(async (request, response) => {
     const started = Date.now();
@@ -70,9 +71,9 @@ export function createMcpApp(dependencies: BusMcpDependencies = {}) {
 function sharedDependencies(dependencies: BusMcpDependencies): BusMcpDependencies {
   const limiter = createRateLimiter();
   return {
+    snapshots: dependencies.snapshots ?? new SearchSnapshots(),
     providers: dependencies.providers ?? createDefaultProviders(),
     railProviders: dependencies.railProviders ?? createDefaultRailProviders(),
-    railQuoteProviders: dependencies.railQuoteProviders ?? (dependencies.railProviders === undefined ? createDefaultRailQuoteProviders() : []),
     railLiveProviders: dependencies.railLiveProviders ?? [new TrenitaliaLiveProvider(), new ItaloLiveProvider()],
     consumeSearch: dependencies.consumeSearch ?? (() => limiter("mcp")),
   };
@@ -98,7 +99,7 @@ async function sendWebResponse(response: ServerResponse, result: Response): Prom
   await pipeline(Readable.fromWeb(result.body as import("node:stream/web").ReadableStream), response);
 }
 
-async function route(request: Request, service: SearchService, railService: RailSearchService, railLiveProviders: readonly RailLiveProvider[]): Promise<Response> {
+async function route(request: Request, service: SearchService, railService: RailSearchService, railLiveProviders: readonly RailLiveProvider[], snapshots: SearchSnapshots): Promise<Response> {
   if (request.method !== "GET") throw new AppError("INVALID_INPUT", "Only GET is supported", 405);
   const url = new URL(request.url);
 
@@ -109,6 +110,16 @@ async function route(request: Request, service: SearchService, railService: Rail
     const query = validateLocationQuery(optional(url, "query"));
     const result = await service.searchLocations(query, optional(url, "provider"));
     return json(result.locations.length === 0 && result.errors.length > 0 ? 503 : 200, result);
+  }
+  if ((url.pathname === "/journeys" || url.pathname === "/train-journeys") && (url.searchParams.has("snapshot") || url.searchParams.has("searchId"))) {
+    const snapshot = optional(url, "snapshot");
+    if (snapshot !== undefined && snapshot !== "true" && snapshot !== "false") throw new AppError("INVALID_INPUT", "snapshot must be true or false", 400);
+    const rail = url.pathname === "/train-journeys";
+    const result = await snapshots.page<import("./domain.ts").Journey | import("./domain.ts").RailJourney>(rail ? "train" : "bus", () => {
+      const input = validateSearchInput({ origin: optional(url, "origin"), destination: optional(url, "destination"), date: optional(url, "date"), adults: optional(url, "adults"), children: optional(url, "children") });
+      return rail ? railService.searchJourneys(input, optional(url, "provider")) : service.searchJourneys(input, optional(url, "provider"));
+    }, { snapshot: snapshot === "true", searchId: optional(url, "searchId"), offset: Number(optional(url, "offset") ?? 0), limit: Number(optional(url, "limit") ?? 50), hasQuery: ["origin", "destination", "date", "adults", "children", "provider"].some((key) => url.searchParams.has(key)) });
+    return json(result.total === 0 && result.errors.some(({ code }) => code !== "NO_JOURNEYS") ? 503 : 200, result);
   }
   if (url.pathname === "/journeys") {
     const result = await service.searchJourneys(validateSearchInput({

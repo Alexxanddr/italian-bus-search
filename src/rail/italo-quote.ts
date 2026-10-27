@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { AppError, type Location, type RailSearchInput } from "../domain.ts";
-import { offsetRomeDateTime } from "./netex.ts";
+import { offsetRomeDateTime } from "./time.ts";
 import type { RailQuote, RailQuoteProvider } from "./provider.ts";
 import { TtlCache } from "../cache.ts";
 import { responseJson } from "../upstream.ts";
@@ -52,7 +52,7 @@ export class ItaloQuoteProvider implements RailQuoteProvider {
       }
       if (result === undefined) throw new AppError("QUOTE_UNAVAILABLE", "Italo quote operation timed out", 503);
       bookingId = optionalString(result.bookingId);
-      const quotes = parseQuotes(result, { id: origin, name: input.origin }, { id: destination, name: input.destination });
+      const quotes = parseQuotes(result, { id: origin, name: requiredString(object(stations[origin]).name) }, { id: destination, name: requiredString(object(stations[destination]).name) });
       this.#cache.set(key, quotes);
       return quotes;
     } finally {

@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/Alexxanddr/italian-travel-search/actions/workflows/ci.yml/badge.svg)](https://github.com/Alexxanddr/italian-travel-search/actions/workflows/ci.yml)
 
-An unofficial, read-only TypeScript service for Italian coach searches and local NeTEx rail timetables through HTTP and Model Context Protocol interfaces.
+An unofficial, read-only TypeScript service for live Italian coach and train searches through HTTP and Model Context Protocol interfaces.
 
 The project hides provider-specific station catalogs, request formats, fare structures, and multi-leg responses behind one shared application core. Italo pricing initializes an anonymous technical session and temporary planning resource; customer login, fare selection, seat reservation, and payment are excluded.
 
@@ -14,17 +14,18 @@ The project hides provider-specific station catalogs, request formats, fare stru
 ## Features
 
 - One response model for locations and journeys across different booking platforms.
-- Live adapters for five operators.
+- Live adapters for five bus operators and two train operators.
 - Partial results when one provider fails and another succeeds.
 - MCP over local stdio or stateless Streamable HTTP at `/mcp`, with backward-compatible bus tools and separate rail tools.
-- Scheduled Trenitalia and Italo searches from operator datasets installed by the deployer.
+- Trenitalia and Italo station and journey searches directly from their live booking APIs.
 - Official links for continuing a search manually on provider sites.
 - Structured, provider-scoped errors instead of leaked upstream responses.
 - Finite upstream request timeouts and bounded asynchronous quote polling.
 - One-hour location caches and 60-second journey caches.
+- Opt-in immutable journey pagination with five-minute in-memory snapshots, shared by HTTP and MCP.
 - Per-client in-memory rate limiting at 60 requests per minute.
 - Offline tests with synthetic fixtures; the test suite never contacts provider sites.
-- A small runtime dependency surface: the official MCP SDK, Zod, and the streaming `saxes` parser.
+- A small runtime dependency surface: the official MCP SDK and Zod.
 
 ## Supported providers
 
@@ -38,7 +39,7 @@ The project hides provider-specific station catalogs, request formats, fare stru
 
 Public provider behavior and limitations are documented in the bus and train API guides below.
 
-Rail schedule support uses compact local caches refreshed from Italian NAP NeTEx with `npm run build && npm run rail:update`. Optional `TRENITALIA_NETEX_PATH` and `ITALO_NETEX_PATH` variables override their paths. Live station discovery and prices remain available when a timetable cannot be loaded, with explicit dataset errors. Trenitalia and Italo prices, ViaggiaTreno live data, and Italo live boards/standalone status are enabled. Italo quote searches use an anonymous temporary planning session and clean it up best-effort.
+Train stations, journeys, prices and availability come directly from Trenitalia and Italo booking APIs. No timetable download, dataset, storage volume or initialization command is required. If one operator fails, its error is reported alongside the other operator's results. ViaggiaTreno and Italo live boards/standalone status remain independent; Italo quote sessions are cleaned up best-effort.
 
 ## Requirements
 
@@ -82,7 +83,7 @@ curl 'http://127.0.0.1:3000/journeys?origin=Roma&destination=Milano&date=YYYY-MM
 | `GET` | `/locations` | Provider location search |
 | `GET` | `/journeys` | Normalized one-way journey search |
 | `GET` | `/train-locations` | Trenitalia/Italo station search |
-| `GET` | `/train-journeys` | Live-priced rail journeys with resilient NeTEx fallback |
+| `GET` | `/train-journeys` | Live rail journeys, availability and nullable prices |
 | `GET` | `/train-status` | Standalone live status where enabled |
 | `GET` | `/station-board` | Live arrivals/departures where enabled |
 | `POST` | `/mcp` | Stateless MCP Streamable HTTP endpoint |
@@ -115,6 +116,12 @@ npm run mcp:built
 
 The existing `list_providers`, `search_locations`, and `search_journeys` bus tools remain compatible. Location and journey searches accept optional `offset`/`limit`; increment `offset` by `limit` until `truncated` is false to retrieve every page. Rail adds `list_train_providers`, `search_train_locations`, `search_train_journeys`, `get_train_status`, and `get_station_board`. Trenitalia and Italo price and live adapters are enabled; Italo live tools retain date-unverified semantics.
 
+For exhaustive journey searches, start with `snapshot: true` and continue
+with only the returned `searchId`, `offset` and `limit`. This keeps
+prices, errors, order and totals identical across pages. Expired IDs require
+a new search. The same opt-in flow exists over HTTP; see
+[stable pagination](docs/api.md#stable-journey-pagination-bus-and-train).
+
 ```json
 {
   "mcpServers": {
@@ -126,7 +133,7 @@ The existing `list_providers`, `search_locations`, and `search_journeys` bus too
 }
 ```
 
-For a container or remote MCPHub deployment, start the HTTP process and point the client to `http://italian-travel-search:3000/mcp`. The container image is `ghcr.io/alexxanddr/italian-travel-search:latest`; populate the two timetable paths with `node dist/rail/update.js` before starting it.
+For a container or remote MCPHub deployment, start the HTTP process and point the client to `http://italian-travel-search:3000/mcp`. The container image is `ghcr.io/alexxanddr/italian-travel-search:latest`. No dataset initialization or persistent volume is needed.
 
 See [MCP interface](docs/mcp.md) for the authoritative tool contract, limits, errors, and development command.
 
@@ -173,7 +180,7 @@ The default server deliberately binds to loopback and keeps rate-limit and cache
 
 - Searches are one-way only.
 - Availability is a provider-reported signal, not a seat or price guarantee.
-- Prices and schedules can change between search and purchase; rail schedule results expose dataset validity and publication metadata.
+- Prices and schedules can change between search and purchase; rail results expose live observation and source metadata. The legacy field name `timetableSource` is retained for compatibility.
 - Caches and rate limits reset when the process restarts and are not shared across replicas.
 - Upstream interfaces are unofficial and can change without notice.
 - Both interfaces intentionally exclude accounts, bookings, payments, and CAPTCHA handling.

@@ -7,6 +7,8 @@ export type ErrorCode =
   | "RATE_LIMITED";
 
 export type RailErrorCode = ErrorCode
+  | "SEARCH_EXPIRED"
+  | "SEARCH_TOO_LARGE"
   | "AMBIGUOUS_LOCATION"
   | "COVERAGE_UNAVAILABLE"
   | "QUOTE_UNAVAILABLE"

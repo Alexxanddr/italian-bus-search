@@ -1,13 +1,12 @@
 {
   "name": "italian-travel-search",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "mcpName": "io.github.Alexxanddr/italian-travel-search",
-  "description": "Read-only Italian bus and train search with live prices, NeTEx fallback and MCP tools",
+  "description": "Read-only Italian bus and train search with live prices and MCP tools",
   "keywords": [
     "italian",
     "bus",
     "rail",
-    "netex",
     "travel",
     "coach",
     "mcp",
@@ -54,7 +53,6 @@
     "start": "node --experimental-strip-types src/index.ts",
     "mcp": "node --experimental-strip-types src/mcp/stdio.ts",
     "mcp:built": "node dist/mcp/stdio.js",
-    "rail:update": "node dist/rail/update.js",
     "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
     "test": "node --experimental-strip-types --test test/*.test.ts",
     "type-check": "tsc --noEmit",
@@ -69,7 +67,6 @@
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.4.0",
-    "saxes": "^6.0.0",
     "zod": "^4.6.7"
   }
 }
