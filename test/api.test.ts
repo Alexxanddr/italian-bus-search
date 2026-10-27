@@ -84,7 +84,8 @@ test("rate limits a client after 60 requests per minute", async () => {
 });
 
 test("returns HTTP 200 for a successful empty journey search", async () => {
-  const response = await createApp([provider])(new Request("http://localhost/journeys?origin=Roma&destination=Cosenza&date=2027-01-15"));
+  const date = new Date(Date.now() + 30 * 86400_000).toISOString().slice(0, 10);
+  const response = await createApp([provider])(new Request(`http://localhost/journeys?origin=Roma&destination=Cosenza&date=${date}`));
   assert.equal(response.status, 200);
   assert.deepEqual((await response.json() as { journeys: unknown[] }).journeys, []);
 });

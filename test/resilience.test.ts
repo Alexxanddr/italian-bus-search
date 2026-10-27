@@ -32,5 +32,5 @@ test("uses the Italian calendar date at midnight and validates bounded text", ()
   const input = { origin: "Roma", destination: "Cosenza", date: "2026-10-28" };
   assert.throws(() => validateSearchInput(input, new Date("2026-10-27T23:30:00Z")), /future date/);
   assert.equal(validateSearchInput({ ...input, date: "2026-10-29" }, new Date("2026-10-27T23:30:00Z")).date, "2026-10-29");
-  assert.throws(() => validateSearchInput({ ...input, date: "2027-01-01", origin: "a".repeat(201) }), /200 characters/);
+  assert.throws(() => validateSearchInput({ ...input, date: "2027-01-01", origin: "a".repeat(201) }, new Date("2026-10-27T12:00:00Z")), /200 characters/);
 });
