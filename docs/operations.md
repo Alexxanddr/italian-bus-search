@@ -119,6 +119,13 @@ The stdio server is intended for one local host connection. `/mcp` is stateless 
 - Monitor provider error codes and response latency.
 - Do not inject provider credentials; current adapters require none.
 - Revalidate live schemas after any `INCOMPATIBLE_RESPONSE` increase.
+- After a tool-schema change, reconnect only `italian-travel-search` in MCPHub
+  (dashboard or authenticated `POST /api/servers/italian-travel-search/reload`).
+  Then inspect MCPHub's `tools/list` and perform a paginated call. A successful
+  upstream rollout alone does not refresh the gateway's cached input schemas.
+
+The container workflow rebuilds on runtime/build-file changes. Documentation
+and test-only commits do not replace `latest` or trigger an unnecessary rollout.
 
 NeTEx updates validate every redirect before contacting the destination. Compressed downloads are limited to 64 MiB, decoded XML to 512 MiB, and XML depth to 128; document-type declarations are rejected. Runtime gzip cache decoding is limited to 128 MiB and validates cache fields and chronological stop times before use.
 

@@ -13,6 +13,7 @@ All notable changes will be documented here. Releases follow Semantic Versioning
 - Drain connections on shutdown, exempt liveness from throttling and emit safe request diagnostics.
 - Derive the MCP runtime version from package metadata and verify private-file exclusions before publishing.
 - Test supported Node 22/24 and current Node 26 in CI.
+- Avoid container rebuilds for documentation/test-only commits and document MCPHub schema reloads.
 
 ## 0.3.3 - 2026-10-27
 

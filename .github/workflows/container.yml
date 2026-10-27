@@ -3,6 +3,14 @@ name: Publish container image
 on:
   push:
     branches: [master]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'tsconfig*.json'
+      - '.github/workflows/container.yml'
   workflow_dispatch:
 
 permissions:
